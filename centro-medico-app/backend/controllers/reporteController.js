@@ -2,6 +2,7 @@
 const { Reporte, Paciente, Cita, MovimientoFinanciero, User } = require('../models');
 const { Op } = require('sequelize');
 const puppeteer = require('puppeteer');
+const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -54,7 +55,23 @@ const generarReporteDiario = async (req, res) => {
     }
 
     // Generar PDF actualizado
-    const rutaPDF = await generarPDFReporte(reporte, datosDia);
+    const pdfBuffer = await generarPDFReporte(reporte, datosDia);
+
+    let rutaPDF;
+    if (cloudinaryConfigured) {
+      // Subir a Cloudinary si está configurado
+      const publicId = `reporte_${reporte.fecha}_${Date.now()}`;
+      const uploadResult = await uploadPdfBuffer(pdfBuffer, publicId, { folder: 'reportes' });
+      rutaPDF = uploadResult.secure_url;
+    } else {
+      // Guardar localmente como antes si Cloudinary no está configurado
+      const reportesDir = path.join(__dirname, '../reportes');
+      await fs.mkdir(reportesDir, { recursive: true });
+      const nombreArchivo = `reporte_${reporte.fecha}_${Date.now()}.pdf`;
+      const rutaLocal = path.join(reportesDir, nombreArchivo);
+      await fs.writeFile(rutaLocal, pdfBuffer);
+      rutaPDF = rutaLocal;
+    }
 
     // Actualizar reporte con ruta del archivo
     await reporte.update({ ruta_archivo: rutaPDF });
@@ -137,26 +154,18 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   };
 };
 
-// Función para generar PDF del reporte
+// Función para generar PDF del reporte como Buffer
 const generarPDFReporte = async (reporte, datos) => {
   try {
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
-
-    // Crear directorio de reportes si no existe
-    const reportesDir = path.join(__dirname, '../reportes');
-    await fs.mkdir(reportesDir, { recursive: true });
 
     // Generar HTML del reporte
     const html = generarHTMLReporte(reporte, datos);
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    const nombreArchivo = `reporte_${reporte.fecha}_${Date.now()}.pdf`;
-    const rutaArchivo = path.join(reportesDir, nombreArchivo);
-
-    await page.pdf({
-      path: rutaArchivo,
+    const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: {
@@ -169,7 +178,7 @@ const generarPDFReporte = async (reporte, datos) => {
 
     await browser.close();
 
-    return rutaArchivo;
+    return pdfBuffer;
 
   } catch (error) {
     console.error('Error al generar PDF:', error);
