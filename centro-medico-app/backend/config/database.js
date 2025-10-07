@@ -8,10 +8,12 @@ const dialectOptions = {};
 if (process.env.DB_SSL === 'true' || process.env.DB_CA_CERT) {
   dialectOptions.ssl = {
     require: true,
-    // Permite desactivar la verificación estricta si es necesario: DB_SSL_REJECT_UNAUTHORIZED=false
-    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-    // Soporta certificado desde archivo (DB_CA_PATH) o desde variable de entorno (DB_CA_CERT)
-    ca: process.env.DB_CA_CERT || (process.env.DB_CA_PATH ? fs.readFileSync(process.env.DB_CA_PATH, 'utf8') : undefined),
+    // En producción (Render), desactivar verificación estricta para evitar errores de certificado
+    rejectUnauthorized: process.env.NODE_ENV !== 'production' && process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+    // Solo usar certificado en desarrollo, en producción confiar en el servidor
+    ca: process.env.NODE_ENV !== 'production' ? 
+      (process.env.DB_CA_CERT || (process.env.DB_CA_PATH ? fs.readFileSync(process.env.DB_CA_PATH, 'utf8') : undefined)) : 
+      undefined,
   };
 }
 
