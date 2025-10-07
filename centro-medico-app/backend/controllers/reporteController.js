@@ -24,31 +24,36 @@ const generarReporteDiario = async (req, res) => {
       where: { fecha, usuario_id }
     });
 
+    // Obtener datos del día (siempre en vivo desde la BD)
+    const datosDia = await obtenerDatosDelDia(fecha, usuario_id);
+
     if (reporte) {
-      return res.json({
-        success: true,
-        message: 'Reporte ya existe para esta fecha',
-        data: { reporte }
+      // Si existe, actualizar con los datos actuales
+      await reporte.update({
+        total_pacientes: datosDia.totalPacientes,
+        total_citas: datosDia.totalCitas,
+        citas_completadas: datosDia.citasCompletadas,
+        citas_canceladas: datosDia.citasCanceladas,
+        total_ingresos: datosDia.totalIngresos,
+        total_egresos: datosDia.totalEgresos,
+        balance_diario: datosDia.balanceDiario
+      });
+    } else {
+      // Si no existe, crearlo
+      reporte = await Reporte.create({
+        fecha,
+        usuario_id,
+        total_pacientes: datosDia.totalPacientes,
+        total_citas: datosDia.totalCitas,
+        citas_completadas: datosDia.citasCompletadas,
+        citas_canceladas: datosDia.citasCanceladas,
+        total_ingresos: datosDia.totalIngresos,
+        total_egresos: datosDia.totalEgresos,
+        balance_diario: datosDia.balanceDiario
       });
     }
 
-    // Obtener datos del día
-    const datosDia = await obtenerDatosDelDia(fecha, usuario_id);
-
-    // Crear reporte en la base de datos
-    reporte = await Reporte.create({
-      fecha,
-      usuario_id,
-      total_pacientes: datosDia.totalPacientes,
-      total_citas: datosDia.totalCitas,
-      citas_completadas: datosDia.citasCompletadas,
-      citas_canceladas: datosDia.citasCanceladas,
-      total_ingresos: datosDia.totalIngresos,
-      total_egresos: datosDia.totalEgresos,
-      balance_diario: datosDia.balanceDiario
-    });
-
-    // Generar PDF
+    // Generar PDF actualizado
     const rutaPDF = await generarPDFReporte(reporte, datosDia);
 
     // Actualizar reporte con ruta del archivo
@@ -75,20 +80,20 @@ const generarReporteDiario = async (req, res) => {
 
 // Función auxiliar para obtener datos del día
 const obtenerDatosDelDia = async (fecha, usuario_id) => {
-  // Obtener pacientes únicos del día
+  // Obtener pacientes únicos del día (según citas del usuario)
   const pacientesDelDia = await Paciente.findAll({
     include: [{
       model: Cita,
       as: 'citas',
-      where: { fecha },
+      where: { fecha, usuario_id },
       attributes: []
     }],
     where: { activo: true }
   });
 
-  // Obtener citas del día
+  // Obtener citas del día del usuario
   const citasDelDia = await Cita.findAll({
-    where: { fecha },
+    where: { fecha, usuario_id },
     include: [{
       model: Paciente,
       as: 'paciente',
@@ -102,7 +107,9 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   });
 
   // Calcular estadísticas
-  const totalPacientes = pacientesDelDia.length;
+  // Asegurar conteo único de pacientes
+  const pacientesUnicos = new Set(pacientesDelDia.map(p => p.id));
+  const totalPacientes = pacientesUnicos.size;
   const totalCitas = citasDelDia.length;
   const citasCompletadas = citasDelDia.filter(c => c.estado === 'completada').length;
   const citasCanceladas = citasDelDia.filter(c => c.estado === 'cancelada').length;

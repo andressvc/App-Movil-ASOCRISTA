@@ -4,14 +4,15 @@ import { Platform } from 'react-native';
 // Función para obtener la URL base según la plataforma
 const getBaseURL = () => {
   if (Platform.OS === 'web') {
-    // Para web, usa localhost
-    return 'http://localhost:3000/api';
+    // Para web, usa la URL de producción o localhost en desarrollo
+    return process.env.NODE_ENV === 'production' 
+      ? 'https://tu-backend.railway.app/api'  // Cambia por tu URL de Railway
+      : 'http://localhost:3000/api';
   } else {
-    // Para móvil, usa la IP local de tu máquina
-    // IMPORTANTE: Cambia esta IP por la IP de tu computadora
-    // Para encontrar tu IP, ejecuta en cmd: ipconfig
-    // Busca "Adaptador de LAN inalámbrica Wi-Fi" -> "Dirección IPv4"
-    return 'http://192.168.1.12:3000/api'; // TU IP CORRECTA
+    // Para móvil, usa la URL de producción o localhost en desarrollo
+    return process.env.NODE_ENV === 'production'
+      ? 'https://tu-backend.railway.app/api'  // Cambia por tu URL de Railway
+      : 'http://localhost:3000/api'; // Usar localhost para desarrollo local
   }
 };
 
@@ -34,6 +35,7 @@ export const STORAGE_KEYS = {
   USER_DATA: 'user_data',
   REMEMBER_ME: 'remember_me',
   THEME: 'theme',
+  BIOMETRIC_CREDENTIALS: 'biometric_credentials',
 };
 
 export const VALIDATION_RULES = {

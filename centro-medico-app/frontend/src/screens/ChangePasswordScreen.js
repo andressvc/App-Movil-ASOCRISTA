@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Colors, Theme } from '../constants/Colors';
-import { SimpleTextInput } from '../components/SimpleTextInput';
+import FreeTextInput from '../components/FreeTextInput';
 
 const ChangePasswordScreen = ({ navigation }) => {
   const { changePassword } = useAuth();
@@ -119,7 +119,7 @@ const ChangePasswordScreen = ({ navigation }) => {
         {label} *
       </Text>
       <View style={styles.passwordContainer}>
-        <SimpleTextInput
+        <FreeTextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

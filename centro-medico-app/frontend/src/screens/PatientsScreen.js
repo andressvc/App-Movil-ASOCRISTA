@@ -133,7 +133,7 @@ const PatientsScreen = ({ navigation }) => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('Dashboard')}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
@@ -200,6 +200,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,

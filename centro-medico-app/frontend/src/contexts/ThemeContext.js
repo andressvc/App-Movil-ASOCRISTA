@@ -67,13 +67,18 @@ export const ThemeProvider = ({ children }) => {
 
   const loadThemePreference = async () => {
     try {
+      console.log('ThemeContext: Cargando preferencias de tema...');
       const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
       if (savedTheme !== null) {
+        console.log('ThemeContext: Tema guardado encontrado:', JSON.parse(savedTheme));
         setIsDarkMode(JSON.parse(savedTheme));
+      } else {
+        console.log('ThemeContext: No hay tema guardado, usando tema claro por defecto');
       }
     } catch (error) {
-      console.error('Error loading theme preference:', error);
+      console.error('ThemeContext: Error loading theme preference:', error);
     } finally {
+      console.log('ThemeContext: Finalizando carga de tema');
       setIsLoading(false);
     }
   };

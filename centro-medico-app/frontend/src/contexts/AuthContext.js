@@ -74,12 +74,17 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthState = async () => {
     try {
+      console.log('AuthContext: Verificando estado de autenticación...');
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
+      
+      console.log('AuthContext: Token encontrado:', !!token);
+      console.log('AuthContext: Datos de usuario encontrados:', !!userData);
       
       if (token && userData) {
         // Si hay token y datos de usuario, asumir que está autenticado
         // La verificación del token se hará en el interceptor de axios
+        console.log('AuthContext: Usuario autenticado encontrado');
         dispatch({
           type: 'LOGIN_SUCCESS',
           payload: {
@@ -88,13 +93,15 @@ export const AuthProvider = ({ children }) => {
           },
         });
       } else {
+        console.log('AuthContext: No hay datos de autenticación, usuario no autenticado');
         dispatch({ type: 'LOGOUT' });
       }
     } catch (error) {
-      console.error('Error checking auth state:', error);
+      console.error('AuthContext: Error checking auth state:', error);
       dispatch({ type: 'LOGOUT' });
     }
   };
+
 
   const login = async (email, password, rememberMe = false) => {
     try {
@@ -142,16 +149,22 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('AuthContext: Iniciando logout...');
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.USER_DATA,
-        STORAGE_KEYS.REMEMBER_ME,
-      ]);
+      
+      // Limpiar AsyncStorage de forma individual para mayor seguridad
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+      await AsyncStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+      
       console.log('AuthContext: Datos eliminados de AsyncStorage');
+      
+      // Actualizar el estado de autenticación
       dispatch({ type: 'LOGOUT' });
-      console.log('AuthContext: Dispatch LOGOUT ejecutado');
+      
+      console.log('AuthContext: Logout completado exitosamente');
     } catch (error) {
       console.error('AuthContext: Error during logout:', error);
+      // Aún así, forzar el logout en caso de error
+      dispatch({ type: 'LOGOUT' });
     }
   };
 
@@ -190,6 +203,7 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: errorMessage };
     }
   };
+
 
   const value = {
     ...state,

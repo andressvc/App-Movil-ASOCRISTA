@@ -38,12 +38,8 @@ const SplashScreen = ({ navigation }) => {
       }),
     ]).start();
 
-    // Navegar después de 3 segundos
-    const timer = setTimeout(() => {
-      navigation.replace('Auth');
-    }, 3000);
-
-    return () => clearTimeout(timer);
+    // No navegar automáticamente - dejar que el AuthContext maneje la navegación
+    // El AuthContext determinará si mostrar Login o Main basado en el estado de autenticación
   }, []);
 
   return (

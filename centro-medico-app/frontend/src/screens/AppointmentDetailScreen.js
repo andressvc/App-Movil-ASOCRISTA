@@ -110,10 +110,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return `Q ${parseFloat(amount).toFixed(2)}`;
   };
 
   const getStatusColor = (estado) => {

@@ -203,7 +203,7 @@ const AboutScreen = ({ navigation }) => {
           Todos los derechos reservados
         </Text>
         <Text style={[styles.copyrightText, { color: theme.text.secondary }]}>
-          Hecho con ❤️ para la salud
+          Hecho con amor para la salud
         </Text>
       </View>
     </ScrollView>

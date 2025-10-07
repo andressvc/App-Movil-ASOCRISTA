@@ -1,22 +1,20 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { TextInput, StyleSheet, View, Text } from 'react-native';
 import { Colors, Theme } from '../constants/Colors';
 
-const SimpleTextInput = forwardRef(({ 
+const FreeTextInput = ({ 
   label,
   error,
   style,
   containerStyle,
   value,
   onChangeText,
-  returnKeyType = "next",
   ...props 
-}, ref) => {
+}) => {
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        ref={ref}
         style={[
           styles.input,
           error && styles.inputError,
@@ -25,18 +23,17 @@ const SimpleTextInput = forwardRef(({
         placeholderTextColor={Colors.gray[400]}
         value={value}
         onChangeText={onChangeText}
-        autoCorrect={false}
-        autoCapitalize="words"
-        returnKeyType={returnKeyType}
-        blurOnSubmit={false}
-        editable={true}
-        selectTextOnFocus={true}
+        autoCorrect={true}
+        autoCapitalize="sentences"
+        autoComplete="off"
+        textContentType="none"
+        importantForAutofill="no"
         {...props}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -71,4 +68,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SimpleTextInput;
+export default FreeTextInput;

@@ -11,38 +11,35 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
 import { Colors, Theme } from '../constants/Colors';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout, changePassword } = useAuth();
-  const { isDarkMode, theme, toggleTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // Debug: Log navigation object
   useEffect(() => {
     console.log('ProfileScreen mounted');
-  }, []);
+    console.log('ProfileScreen: user data:', user);
+    console.log('ProfileScreen: logout function:', typeof logout);
+    console.log('ProfileScreen: isAuthenticated:', user ? 'true' : 'false');
+  }, [user, logout]);
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: () => {
-            logout();
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    console.log('ProfileScreen: handleLogout llamado');
+    console.log('ProfileScreen: logout function disponible:', typeof logout);
+    
+    // Prueba directa sin confirmación
+    try {
+      console.log('ProfileScreen: Ejecutando logout directamente...');
+      await logout();
+      console.log('ProfileScreen: Logout completado exitosamente');
+    } catch (error) {
+      console.error('ProfileScreen: Error durante logout:', error);
+      Alert.alert('Error', 'Hubo un problema al cerrar sesión. Inténtalo de nuevo.');
+    }
   };
+
 
   const handleChangePassword = () => {
     Alert.prompt(
@@ -92,7 +89,7 @@ const ProfileScreen = ({ navigation }) => {
   );
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+    <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -159,23 +156,6 @@ const ProfileScreen = ({ navigation }) => {
           />
         </View>
 
-        <View style={styles.profileItem}>
-          <View style={styles.profileItemLeft}>
-            <View style={styles.profileItemIcon}>
-              <Ionicons name="moon-outline" size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.profileItemContent}>
-              <Text style={styles.profileItemTitle}>Modo Oscuro</Text>
-              <Text style={styles.profileItemSubtitle}>Tema oscuro de la aplicación</Text>
-            </View>
-          </View>
-          <Switch
-            value={isDarkMode}
-            onValueChange={toggleTheme}
-            trackColor={{ false: theme.gray[300], true: theme.primary }}
-            thumbColor={isDarkMode ? theme.white : theme.gray[500]}
-          />
-        </View>
       </View>
 
       {/* Soporte */}
@@ -209,12 +189,36 @@ const ProfileScreen = ({ navigation }) => {
         />
       </View>
 
+      {/* Bitácora */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Bitácora</Text>
+        <ProfileItem
+          icon="document-text-outline"
+          title="Bitácora"
+          subtitle="Registro de actividades del sistema"
+          onPress={() => {
+            if (navigation && navigation.navigate) {
+              navigation.navigate('Bitacora');
+            } else {
+              Alert.alert('Bitácora', 'Registro de actividades del sistema');
+            }
+          }}
+        />
+      </View>
+
       {/* Cerrar Sesión */}
       <View style={styles.section}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={() => {
+            console.log('ProfileScreen: Botón de logout presionado');
+            handleLogout();
+          }}
+        >
           <Ionicons name="log-out-outline" size={24} color={Colors.error} />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
+        
       </View>
 
       {/* Footer */}

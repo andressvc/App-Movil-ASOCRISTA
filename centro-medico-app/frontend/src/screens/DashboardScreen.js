@@ -10,11 +10,13 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { dashboardService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import { Images } from '../constants/Images';
 
 const DashboardScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -103,6 +105,13 @@ const DashboardScreen = ({ navigation }) => {
                 day: 'numeric' 
               })}</Text>
             </View>
+            <View style={styles.logoContainer}>
+              <Image 
+                source={Images.asoLogo} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
             <TouchableOpacity style={styles.profileButton} activeOpacity={0.7}>
               <View style={styles.profileIconContainer}>
                 <Ionicons name="person-circle-outline" size={32} color={Colors.primary} />
@@ -138,7 +147,7 @@ const DashboardScreen = ({ navigation }) => {
             />
             <StatCard
               title="Balance Diario"
-              value={`$${summary?.resumen?.balanceDiario?.toFixed(2) || '0.00'}`}
+              value={`Q ${summary?.resumen?.balanceDiario?.toFixed(2) || '0.00'}`}
               icon="cash-outline"
               color={summary?.resumen?.balanceDiario >= 0 ? Colors.success : Colors.error}
               onPress={() => navigation.navigate('Financial', { screen: 'FinancialList' })}
@@ -172,7 +181,7 @@ const DashboardScreen = ({ navigation }) => {
             </View>
             <View style={styles.weeklyStatCard}>
               <Text style={styles.weeklyStatNumber}>
-                ${summary.estadisticasSemanales.ingresosTotales?.toFixed(2) || '0.00'}
+                Q ${summary.estadisticasSemanales.ingresosTotales?.toFixed(2) || '0.00'}
               </Text>
               <Text style={styles.weeklyStatLabel}>Ingresos</Text>
               <View style={styles.weeklyStatTrend}>
@@ -243,7 +252,7 @@ const DashboardScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pacientes Más Activos</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Patients', { screen: 'PatientsList' })}>
+            <TouchableOpacity onPress={() => navigation.navigate('Patients')}>
               <Text style={styles.seeAllText}>Ver todos</Text>
             </TouchableOpacity>
           </View>
@@ -261,7 +270,7 @@ const DashboardScreen = ({ navigation }) => {
                   {paciente.nombre} {paciente.apellido}
                 </Text>
                 <Text style={styles.topPatientStats}>
-                  {paciente.totalCitas} citas • ${paciente.totalPagado?.toFixed(2) || '0.00'}
+                  {paciente.totalCitas} citas • Q {paciente.totalPagado?.toFixed(2) || '0.00'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.gray[400]} />
@@ -435,6 +444,20 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
+  },
+  logoContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: Theme.spacing.md,
+    ...Theme.shadows.sm,
+  },
+  logo: {
+    width: 35,
+    height: 35,
   },
   greeting: {
     ...Theme.typography.title2,

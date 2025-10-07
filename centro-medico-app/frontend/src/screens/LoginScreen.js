@@ -16,6 +16,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors, Theme } from '../constants/Colors';
 import { VALIDATION_RULES } from '../constants/Config';
@@ -32,6 +33,10 @@ const LoginScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showBiometricOption, setShowBiometricOption] = useState(false);
+  const [biometricType, setBiometricType] = useState('biométrico');
+  const [resetEmail, setResetEmail] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // Limpiar errores cuando cambien los campos
   useEffect(() => {
@@ -39,6 +44,26 @@ const LoginScreen = ({ navigation }) => {
       clearError();
     }
   }, [formData]);
+
+  // Verificar disponibilidad de autenticación biométrica
+  useEffect(() => {
+    const checkBiometricAvailability = async () => {
+      try {
+        const isAvailable = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+        const hasFace = types?.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+        const hasFingerprint = types?.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
+        setBiometricType(hasFace ? 'FaceID' : hasFingerprint ? 'Huella' : 'biométrico');
+        setShowBiometricOption(isAvailable && isEnrolled);
+      } catch (error) {
+        console.error('Error verificando autenticación biométrica:', error);
+        setShowBiometricOption(false);
+      }
+    };
+
+    checkBiometricAvailability();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -80,6 +105,49 @@ const LoginScreen = ({ navigation }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Autenticación biométrica',
+        cancelLabel: 'Cancelar',
+        fallbackLabel: 'Usar contraseña',
+      });
+
+      if (result.success) {
+        // Aquí podrías implementar lógica para usar credenciales guardadas
+        // Por ahora, simplemente mostrar un mensaje
+        Alert.alert(
+          'Autenticación Biométrica',
+          'Autenticación biométrica exitosa. Funcionalidad completa pendiente de implementar.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('Autenticación biométrica cancelada o fallida');
+      }
+    } catch (error) {
+      console.error('Error en autenticación biométrica:', error);
+      Alert.alert('Error', 'Error en la autenticación biométrica');
+    }
+  };
+
+  const handleForgotPassword = () => {
+    setResetEmail(formData.email || '');
+    setShowResetModal(true);
+  };
+
+  const submitPasswordReset = async () => {
+    if (!resetEmail || !VALIDATION_RULES.EMAIL.test(resetEmail)) {
+      Alert.alert('Correo inválido', 'Ingresa un correo electrónico válido');
+      return;
+    }
+    setShowResetModal(false);
+    Alert.alert(
+      'Solicitud enviada',
+      'Si el correo existe en el sistema, recibirás instrucciones para restablecer tu contraseña.',
+      [{ text: 'OK' }]
+    );
   };
 
   return (
@@ -162,7 +230,7 @@ const LoginScreen = ({ navigation }) => {
               </View>
 
               {/* Forgot Password */}
-              <TouchableOpacity style={styles.forgotPassword}>
+              <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
                 <Text style={styles.forgotPasswordText}>¿olvidaste tu contraseña?</Text>
               </TouchableOpacity>
 
@@ -179,6 +247,24 @@ const LoginScreen = ({ navigation }) => {
                 )}
               </TouchableOpacity>
 
+              {/* Botón de autenticación biométrica */}
+              {showBiometricOption && (
+                <TouchableOpacity
+                  style={styles.biometricButton}
+                  onPress={handleBiometricLogin}
+                  disabled={isLoading}
+                >
+                  <Ionicons 
+                    name={biometricType === 'FaceID' ? 'scan-outline' : 'finger-print-outline'} 
+                    size={24} 
+                    color={Colors.primary} 
+                  />
+                  <Text style={styles.biometricButtonText}>
+                    Usar {biometricType}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Error general */}
               {error && (
                 <View style={styles.errorContainer}>
@@ -188,15 +274,40 @@ const LoginScreen = ({ navigation }) => {
               )}
             </View>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-              <TouchableOpacity style={styles.registerButton}>
-                <Text style={styles.registerText}>registrarse</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Reset Password Modal (simple) */}
+      {showResetModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Restablecer contraseña</Text>
+            <Text style={styles.modalSubtitle}>Ingresa tu correo electrónico para recibir instrucciones</Text>
+            <View style={[styles.inputWrapper, { marginTop: Theme.spacing.md }]}> 
+              <Ionicons name="mail-outline" size={20} color={Colors.gray[400]} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="tu-correo@ejemplo.com"
+                placeholderTextColor={Colors.gray[400]}
+                value={resetEmail}
+                onChangeText={setResetEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', marginTop: Theme.spacing.lg, gap: Theme.spacing.md }}>
+              <TouchableOpacity style={[styles.loginButton, { backgroundColor: Colors.gray[200], flex: 1 }]} onPress={() => setShowResetModal(false)}>
+                <Text style={[styles.loginButtonText, { color: Colors.text.primary }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.loginButton, { flex: 1 }]} onPress={submitPasswordReset}>
+                <Text style={styles.loginButtonText}>Enviar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -324,17 +435,53 @@ const styles = StyleSheet.create({
     padding: Theme.spacing.md,
     marginBottom: Theme.spacing.md,
   },
-  footer: {
+  biometricButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Theme.spacing.xl,
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.lg,
+    paddingVertical: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.lg,
+    marginTop: Theme.spacing.md,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    ...Theme.shadows.sm,
   },
-  registerButton: {
-    padding: Theme.spacing.md,
-  },
-  registerText: {
-    ...Theme.typography.callout,
+  biometricButtonText: {
+    ...Theme.typography.button,
     color: Colors.primary,
+    marginLeft: Theme.spacing.sm,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.lg,
+    width: '100%',
+    maxWidth: 420,
+    padding: Theme.spacing.xl,
+  },
+  modalTitle: {
+    ...Theme.typography.title2,
+    color: Colors.text.primary,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    ...Theme.typography.callout,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginTop: Theme.spacing.sm,
   },
 });
 

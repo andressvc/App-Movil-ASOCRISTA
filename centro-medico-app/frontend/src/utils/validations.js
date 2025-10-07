@@ -118,34 +118,18 @@ export const ValidationRules = {
     return null;
   },
 
-  // Validación de monto
+  // Validación de monto - SIMPLIFICADA
   amount: (value) => {
     if (!value || value.trim().length === 0) {
       return 'El monto es requerido';
     }
-    const amount = parseFloat(value);
-    if (isNaN(amount)) {
-      return 'El monto debe ser un número';
-    }
-    if (amount <= 0) {
-      return 'El monto debe ser mayor a 0';
-    }
-    if (amount > 999999.99) {
-      return 'El monto no puede exceder 999,999.99';
-    }
     return null;
   },
 
-  // Validación de descripción
+  // Validación de descripción - SIMPLIFICADA
   description: (value) => {
     if (!value || value.trim().length === 0) {
       return 'La descripción es requerida';
-    }
-    if (value.trim().length < 3) {
-      return 'Debe tener al menos 3 caracteres';
-    }
-    if (value.trim().length > 500) {
-      return 'No puede exceder 500 caracteres';
     }
     return null;
   },

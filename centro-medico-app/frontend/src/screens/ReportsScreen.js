@@ -15,25 +15,113 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import { API_CONFIG } from '../constants/Config';
 
 const ReportsScreen = ({ navigation }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [generating, setGenerating] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   const loadReports = async () => {
     try {
       setLoading(true);
+      setHasError(false);
+      console.log('ReportsScreen: Intentando cargar reportes...');
       const response = await reportService.getReports();
+      console.log('ReportsScreen: Respuesta del servidor:', response);
+      
       if (response.success) {
-        setReports(response.data.reportes);
+        // El backend devuelve { data: { reportes: [...] } }
+        const reportes = response.data?.reportes || response.data || [];
+        setReports(reportes);
+        console.log('ReportsScreen: Reportes cargados exitosamente:', reportes);
+      } else {
+        console.log('ReportsScreen: Respuesta no exitosa:', response.message);
+        setReports([]);
+        setHasError(true);
       }
     } catch (error) {
-      console.error('Error loading reports:', error);
-      Alert.alert('Error', 'No se pudieron cargar los reportes');
+      console.error('ReportsScreen: Error cargando reportes:', error);
+      
+      // Verificar el tipo de error
+      if (error.code === 'CONNECTION_ERROR' || !error.response) {
+        console.log('ReportsScreen: Error de conexión - Backend no disponible');
+        Alert.alert(
+          'Error de Conexión',
+          'No se pudo conectar con el servidor. Verifica que el backend esté ejecutándose en http://localhost:3000',
+          [
+            {
+              text: 'Reintentar',
+              onPress: () => loadReports()
+            },
+            {
+              text: 'Ver Datos de Ejemplo',
+              onPress: () => {
+                setReports([
+                  {
+                    id: 1,
+                    tipo: 'diario',
+                    titulo: 'Reporte Diario - ' + new Date().toLocaleDateString('es-ES'),
+                    descripcion: 'Resumen de actividades del día',
+                    fecha: new Date().toISOString(),
+                    total_pacientes: 5,
+                    total_ingresos: 1250.00
+                  },
+                  {
+                    id: 2,
+                    tipo: 'financiero',
+                    titulo: 'Reporte Financiero Semanal',
+                    descripcion: 'Análisis de ingresos y egresos',
+                    fecha: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    total_pacientes: 12,
+                    total_ingresos: 3200.00
+                  }
+                ]);
+              }
+            }
+          ]
+        );
+      } else if (error.response?.status === 401) {
+        console.log('ReportsScreen: Error de autenticación');
+        Alert.alert(
+          'Sesión Expirada',
+          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      } else {
+        console.log('ReportsScreen: Error del servidor:', error.response?.data);
+        Alert.alert(
+          'Error del Servidor',
+          error.response?.data?.message || 'Error al cargar los reportes',
+          [
+            {
+              text: 'Reintentar',
+              onPress: () => loadReports()
+            }
+          ]
+        );
+      }
+      
+      // En caso de error, mostrar array vacío para que la pantalla se renderice
+      setReports([]);
+      setHasError(true);
     } finally {
       setLoading(false);
     }
@@ -52,17 +140,38 @@ const ReportsScreen = ({ navigation }) => {
   const generateReport = async () => {
     try {
       setGenerating(true);
+      console.log('ReportsScreen: Generando reporte para fecha:', selectedDate);
       const response = await reportService.generateDailyReport(selectedDate);
+      console.log('ReportsScreen: Respuesta de generación:', response);
+      
       if (response.success) {
-        Alert.alert('Éxito', 'Reporte generado correctamente');
+        console.log('ReportsScreen: Reporte generado exitosamente');
+        // Cerrar modal, recargar lista y mostrar alerta centrada estilo pacientes
         setShowGenerateModal(false);
-        loadReports();
+        await loadReports();
+        setShowSuccessAlert(true);
       } else {
+        console.log('ReportsScreen: Error en respuesta:', response.message);
         Alert.alert('Error', response.message || 'No se pudo generar el reporte');
       }
     } catch (error) {
-      console.error('Error generating report:', error);
-      Alert.alert('Error', 'No se pudo generar el reporte');
+      console.error('ReportsScreen: Error generando reporte:', error);
+      
+      // Si es error 401, significa que no está autenticado
+      if (error.response?.status === 401) {
+        Alert.alert(
+          'Sesión Expirada', 
+          'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'No se pudo generar el reporte. Intenta nuevamente.');
+      }
     } finally {
       setGenerating(false);
     }
@@ -91,11 +200,19 @@ const ReportsScreen = ({ navigation }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      if (!dateString) {
+        return 'Fecha no disponible';
+      }
+      return new Date(dateString).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Fecha inválida';
+    }
   };
 
   const renderReport = ({ item }) => (
@@ -111,13 +228,13 @@ const ReportsScreen = ({ navigation }) => {
             color={getReportTypeColor(item.tipo)} 
           />
           <Text style={[styles.reportTypeText, { color: getReportTypeColor(item.tipo) }]}>
-            {item.tipo.toUpperCase()}
+            {(item.tipo || 'general').toUpperCase()}
           </Text>
         </View>
-        <Text style={styles.reportDate}>{formatDate(item.fecha)}</Text>
+        <Text style={styles.reportDate}>{formatDate(item.fecha || new Date())}</Text>
       </View>
       
-      <Text style={styles.reportTitle}>{item.titulo}</Text>
+      <Text style={styles.reportTitle}>{item.titulo || 'Sin título'}</Text>
       
       {item.descripcion && (
         <Text style={styles.reportDescription}>{item.descripcion}</Text>
@@ -131,29 +248,12 @@ const ReportsScreen = ({ navigation }) => {
           </Text>
           <Text style={styles.statText}>
             <Ionicons name="cash-outline" size={14} color={Colors.gray[500]} />
-            {' '}${item.total_ingresos || 0}
+            {' '}Q {parseFloat(item.total_ingresos || 0).toFixed(2)}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={Colors.gray[400]} />
       </View>
     </TouchableOpacity>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="document-text-outline" size={64} color={Colors.gray[300]} />
-      <Text style={styles.emptyTitle}>No hay reportes</Text>
-      <Text style={styles.emptyMessage}>
-        Genera tu primer reporte para ver estadísticas detalladas
-      </Text>
-      <TouchableOpacity
-        style={styles.generateButton}
-        onPress={() => setShowGenerateModal(true)}
-      >
-        <Ionicons name="add" size={20} color={Colors.white} />
-        <Text style={styles.generateButtonText}>Generar Reporte</Text>
-      </TouchableOpacity>
-    </View>
   );
 
   if (loading) {
@@ -175,7 +275,9 @@ const ReportsScreen = ({ navigation }) => {
         >
           <Ionicons name="arrow-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Reportes</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Reportes</Text>
+        </View>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowGenerateModal(true)}
@@ -213,7 +315,36 @@ const ReportsScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         {reports.length === 0 ? (
-          renderEmptyState()
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={64} color={Colors.gray[300]} />
+            <Text style={styles.emptyTitle}>No hay reportes</Text>
+            <Text style={styles.emptyMessage}>
+              {loading ? 'Cargando reportes...' : 
+               hasError ? 'Error al cargar reportes. Verifica la conexión al servidor.' :
+               'Genera tu primer reporte para ver estadísticas detalladas'}
+            </Text>
+            {!loading && (
+              <>
+                {hasError ? (
+                  <TouchableOpacity
+                    style={styles.generateButton}
+                    onPress={() => loadReports()}
+                  >
+                    <Ionicons name="refresh" size={20} color={Colors.white} />
+                    <Text style={styles.generateButtonText}>Reintentar</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.generateButton}
+                    onPress={() => setShowGenerateModal(true)}
+                  >
+                    <Ionicons name="add" size={20} color={Colors.white} />
+                    <Text style={styles.generateButtonText}>Generar Reporte</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
         ) : (
           reports.map((report) => (
             <View key={report.id}>
@@ -241,16 +372,24 @@ const ReportsScreen = ({ navigation }) => {
             
             <View style={styles.modalBody}>
               <Text style={styles.inputLabel}>Fecha del Reporte</Text>
-              <TextInput
-                style={styles.dateInput}
-                value={selectedDate}
-                onChangeText={setSelectedDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={Colors.gray[400]}
-              />
+              <View style={styles.dateInputContainer}>
+                <TextInput
+                  style={styles.dateInput}
+                  value={selectedDate}
+                  onChangeText={setSelectedDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={Colors.gray[400]}
+                />
+                <TouchableOpacity
+                  style={styles.todayButton}
+                  onPress={() => setSelectedDate(getLocalDateString())}
+                >
+                  <Text style={styles.todayButtonText}>Hoy</Text>
+                </TouchableOpacity>
+              </View>
               
               <Text style={styles.modalDescription}>
-                Se generará un reporte diario con estadísticas de pacientes, citas y movimientos financieros.
+                Se generará un reporte diario con estadísticas de pacientes, citas y movimientos financieros para la fecha seleccionada.
               </Text>
             </View>
             
@@ -274,6 +413,27 @@ const ReportsScreen = ({ navigation }) => {
                     <Text style={styles.generateModalButtonText}>Generar</Text>
                   </>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Éxito centrado */}
+      <Modal
+        visible={showSuccessAlert}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successModalTitle}>Generado Exitosamente</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={styles.successModalButton}
+                onPress={() => setShowSuccessAlert(false)}
+              >
+                <Text style={styles.successModalButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -309,11 +469,21 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: Colors.text.primary,
+  },
+  debugText: {
+    fontSize: 10,
+    color: Colors.gray[500],
+    marginTop: 2,
   },
   addButton: {
     backgroundColor: Colors.primary,
@@ -468,19 +638,37 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     marginBottom: 8,
   },
+  dateInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
   dateInput: {
+    flex: 1,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Theme.borderRadius.md,
     padding: 12,
     fontSize: 16,
     color: Colors.text.primary,
-    marginBottom: 16,
+  },
+  todayButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.md,
+  },
+  todayButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalDescription: {
     fontSize: 14,
     color: Colors.text.secondary,
     lineHeight: 20,
+    marginBottom: 16,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -517,6 +705,38 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    minWidth: 250,
+    ...Theme.shadows.lg,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.success,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  successModalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successModalButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

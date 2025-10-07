@@ -1,96 +1,97 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   Modal, 
   StyleSheet, 
-  Dimensions,
-  PanGestureHandler,
-  State
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../constants/Colors';
 
-const { width: screenWidth } = Dimensions.get('window');
-
-const CustomDateTimePicker = ({ 
+const SimpleDatePicker = ({ 
   value, 
   onChange, 
-  mode = 'datetime', 
-  placeholder = 'Seleccionar fecha y hora',
+  placeholder = 'Seleccionar fecha',
   label,
   error,
-  style,
-  showTime = true
+  style 
 }) => {
   const [show, setShow] = useState(false);
   const [selectedDate, setSelectedDate] = useState(value || new Date());
-  const [selectedTime, setSelectedTime] = useState(value || new Date());
-  const [isAM, setIsAM] = useState((value || new Date()).getHours() < 12);
+  const [showYearSelector, setShowYearSelector] = useState(false);
   
   const styles = getStyles();
-
-  const currentMonth = selectedDate.getMonth();
-  const currentYear = selectedDate.getFullYear();
-  const currentDay = selectedDate.getDate();
-
-  // Generar días del mes
-  const calendarDays = useMemo(() => {
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    const days = [];
-    
-    // Días del mes anterior
-    const prevMonth = new Date(currentYear, currentMonth - 1, 0);
-    const daysInPrevMonth = prevMonth.getDate();
-    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
-      days.push({
-        day: daysInPrevMonth - i,
-        isCurrentMonth: false,
-        isToday: false,
-        isSelected: false
-      });
-    }
-    
-    // Días del mes actual
-    for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = day === new Date().getDate() && 
-                     currentMonth === new Date().getMonth() && 
-                     currentYear === new Date().getFullYear();
-      const isSelected = day === currentDay;
-      
-      days.push({
-        day,
-        isCurrentMonth: true,
-        isToday,
-        isSelected
-      });
-    }
-    
-    // Días del mes siguiente
-    const remainingDays = 42 - days.length; // 6 semanas x 7 días
-    for (let day = 1; day <= remainingDays; day++) {
-      days.push({
-        day,
-        isCurrentMonth: false,
-        isToday: false,
-        isSelected: false
-      });
-    }
-    
-    return days;
-  }, [currentMonth, currentYear, currentDay]);
 
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  const currentMonth = selectedDate.getMonth();
+  const currentYear = selectedDate.getFullYear();
+  const currentDay = selectedDate.getDate();
+
+  // Generar días del mes
+  const getDaysInMonth = (year, month) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year, month) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const generateCalendarDays = () => {
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+    const days = [];
+
+    // Días del mes anterior
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
+    
+    for (let i = firstDay - 1; i >= 0; i--) {
+      days.push({
+        day: daysInPrevMonth - i,
+        isCurrentMonth: false,
+        isSelected: false,
+        isToday: false
+      });
+    }
+
+    // Días del mes actual
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isToday = day === today.getDate() && 
+                     currentMonth === today.getMonth() && 
+                     currentYear === today.getFullYear();
+      const isSelected = day === currentDay;
+      
+      days.push({
+        day,
+        isCurrentMonth: true,
+        isSelected,
+        isToday
+      });
+    }
+
+    // Días del mes siguiente para completar la grilla
+    const remainingDays = 42 - days.length;
+    for (let day = 1; day <= remainingDays; day++) {
+      days.push({
+        day,
+        isCurrentMonth: false,
+        isSelected: false,
+        isToday: false
+      });
+    }
+
+    return days;
+  };
 
   const handleDateSelect = (day, isCurrentMonth) => {
     if (!isCurrentMonth) return;
@@ -99,23 +100,8 @@ const CustomDateTimePicker = ({
     setSelectedDate(newDate);
   };
 
-  const handleTimeSelect = (hour, minute) => {
-    const newTime = new Date(selectedDate);
-    newTime.setHours(isAM ? hour : hour + 12, minute, 0, 0);
-    setSelectedTime(newTime);
-  };
-
   const handleConfirm = () => {
-    if (showTime) {
-      const finalDate = new Date(selectedDate);
-      finalDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-      onChange(finalDate);
-    } else {
-      // Solo fecha: normalizar a medianoche y enviar solo la fecha
-      const onlyDate = new Date(selectedDate);
-      onlyDate.setHours(0, 0, 0, 0);
-      onChange(onlyDate);
-    }
+    onChange(selectedDate);
     setShow(false);
   };
 
@@ -125,20 +111,35 @@ const CustomDateTimePicker = ({
     setSelectedDate(newDate);
   };
 
+  const navigateYear = (direction) => {
+    const newDate = new Date(selectedDate);
+    newDate.setFullYear(currentYear + direction);
+    setSelectedDate(newDate);
+  };
+
+  const goToYear = (year) => {
+    const newDate = new Date(selectedDate);
+    newDate.setFullYear(year);
+    setSelectedDate(newDate);
+    setShowYearSelector(false);
+  };
+
+  const generateYearList = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    
+    // Generar años desde 1920 hasta el año actual + 1
+    for (let year = currentYear + 1; year >= 1920; year--) {
+      years.push(year);
+    }
+    
+    return years;
+  };
+
   const formatDisplayValue = (date) => {
     if (!date) return '';
     
     try {
-      if (showTime) {
-        return date.toLocaleString('es-ES', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
-      }
       return date.toLocaleDateString('es-ES', {
         day: '2-digit',
         month: '2-digit',
@@ -150,74 +151,7 @@ const CustomDateTimePicker = ({
     }
   };
 
-  const renderClock = () => {
-    const hours = selectedTime.getHours() % 12 || 12;
-    const minutes = selectedTime.getMinutes();
-    
-    return (
-      <View style={styles.clockContainer}>
-        <View style={styles.clockFace}>
-          {Array.from({ length: 12 }, (_, i) => {
-            const hour = i + 1;
-            const angle = (i * 30) - 90; // 30 grados por hora
-            const x = 60 + 50 * Math.cos(angle * Math.PI / 180);
-            const y = 60 + 50 * Math.sin(angle * Math.PI / 180);
-            
-            return (
-              <View
-                key={hour}
-                style={[
-                  styles.clockNumber,
-                  {
-                    left: x - 10,
-                    top: y - 10,
-                    backgroundColor: hours === hour ? Colors.primary : 'transparent'
-                  }
-                ]}
-              >
-                <Text style={[
-                  styles.clockNumberText,
-                  { color: hours === hour ? Colors.white : Colors.text.primary }
-                ]}>
-                  {hour}
-                </Text>
-              </View>
-            );
-          })}
-          
-          {/* Manecillas */}
-          <View style={[
-            styles.hourHand,
-            {
-              transform: [{ rotate: `${(hours * 30) + (minutes * 0.5) - 90}deg` }]
-            }
-          ]} />
-          <View style={[
-            styles.minuteHand,
-            {
-              transform: [{ rotate: `${minutes * 6 - 90}deg` }]
-            }
-          ]} />
-        </View>
-        
-        {/* Selector AM/PM */}
-        <View style={styles.ampmContainer}>
-          <TouchableOpacity
-            style={[styles.ampmButton, isAM && styles.ampmButtonSelected]}
-            onPress={() => setIsAM(true)}
-          >
-            <Text style={[styles.ampmText, isAM && styles.ampmTextSelected]}>AM</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.ampmButton, !isAM && styles.ampmButtonSelected]}
-            onPress={() => setIsAM(false)}
-          >
-            <Text style={[styles.ampmText, !isAM && styles.ampmTextSelected]}>PM</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+  const calendarDays = generateCalendarDays();
 
   return (
     <View style={[styles.container, style]}>
@@ -227,13 +161,9 @@ const CustomDateTimePicker = ({
         onPress={() => setShow(true)}
       >
         <Text style={[styles.text, !value && styles.placeholder]}>
-          {value ? formatDisplayValue(value) : (showTime ? placeholder : 'Seleccionar fecha')}
+          {value ? formatDisplayValue(value) : placeholder}
         </Text>
-        <Ionicons 
-          name={showTime ? "time-outline" : "calendar-outline"} 
-          size={20} 
-          color={Colors.gray[500]} 
-        />
+        <Ionicons name="calendar-outline" size={20} color={Colors.gray[500]} />
       </TouchableOpacity>
       {error && <Text style={styles.errorText}>{error}</Text>}
       
@@ -248,29 +178,57 @@ const CustomDateTimePicker = ({
             {/* Header */}
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShow(false)}>
-                <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+                <Ionicons name="close" size={24} color={Colors.text.primary} />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>
-                {monthNames[currentMonth]} {currentYear}
-              </Text>
+              <TouchableOpacity 
+                style={styles.titleContainer}
+                onPress={() => setShowYearSelector(!showYearSelector)}
+              >
+                <Text style={styles.modalTitle}>
+                  {monthNames[currentMonth]} {currentYear}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.text.primary} />
+              </TouchableOpacity>
               <View style={styles.headerRight}>
-                <TouchableOpacity onPress={() => navigateMonth(-1)}>
+                <TouchableOpacity onPress={() => navigateYear(-1)}>
                   <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigateMonth(-1)}>
+                  <Ionicons name="chevron-back-outline" size={20} color={Colors.text.primary} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigateMonth(1)}>
+                  <Ionicons name="chevron-forward-outline" size={20} color={Colors.text.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigateYear(1)}>
                   <Ionicons name="chevron-forward" size={24} color={Colors.text.primary} />
                 </TouchableOpacity>
-                {showTime && (
-                  <Text style={styles.timeDisplay}>
-                    {selectedTime.toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                  </Text>
-                )}
               </View>
             </View>
+
+            {/* Year Selector */}
+            {showYearSelector && (
+              <View style={styles.yearSelector}>
+                <ScrollView style={styles.yearList} showsVerticalScrollIndicator={false}>
+                  {generateYearList().map((year) => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.yearItem,
+                        year === currentYear && styles.yearItemSelected
+                      ]}
+                      onPress={() => goToYear(year)}
+                    >
+                      <Text style={[
+                        styles.yearText,
+                        year === currentYear && styles.yearTextSelected
+                      ]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Calendar */}
             <View style={styles.calendarContainer}>
@@ -304,9 +262,6 @@ const CustomDateTimePicker = ({
                 ))}
               </View>
             </View>
-
-            {/* Clock */}
-            {showTime && renderClock()}
 
             {/* Confirm Button */}
             <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
@@ -366,7 +321,7 @@ const getStyles = () => StyleSheet.create({
   modalContent: {
     backgroundColor: Colors.white,
     borderRadius: 20,
-    width: screenWidth * 0.9,
+    width: '90%',
     maxHeight: '80%',
     padding: 20,
   },
@@ -379,6 +334,11 @@ const getStyles = () => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -387,13 +347,36 @@ const getStyles = () => StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 5,
   },
-  timeDisplay: {
+  yearSelector: {
+    maxHeight: 200,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    backgroundColor: Colors.gray[50],
+  },
+  yearList: {
+    maxHeight: 180,
+  },
+  yearItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  yearItemSelected: {
+    backgroundColor: Colors.primary,
+  },
+  yearText: {
     fontSize: 16,
-    fontWeight: '600',
     color: Colors.text.primary,
-    marginLeft: 10,
+    textAlign: 'center',
+  },
+  yearTextSelected: {
+    color: Colors.white,
+    fontWeight: 'bold',
   },
   calendarContainer: {
     marginBottom: 20,
@@ -448,74 +431,6 @@ const getStyles = () => StyleSheet.create({
   dayTextInactive: {
     color: Colors.gray[400],
   },
-  clockContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  clockFace: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    position: 'relative',
-    marginBottom: 20,
-  },
-  clockNumber: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clockNumberText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  hourHand: {
-    position: 'absolute',
-    width: 3,
-    height: 35,
-    backgroundColor: Colors.primary,
-    top: 25,
-    left: 58.5,
-    borderRadius: 1.5,
-    transformOrigin: 'bottom',
-  },
-  minuteHand: {
-    position: 'absolute',
-    width: 2,
-    height: 45,
-    backgroundColor: Colors.primary,
-    top: 15,
-    left: 59,
-    borderRadius: 1,
-    transformOrigin: 'bottom',
-  },
-  ampmContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  ampmButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  ampmButtonSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  ampmText: {
-    fontSize: 16,
-    color: Colors.text.primary,
-  },
-  ampmTextSelected: {
-    color: Colors.white,
-    fontWeight: 'bold',
-  },
   confirmButton: {
     backgroundColor: Colors.primary,
     paddingVertical: 15,
@@ -529,4 +444,4 @@ const getStyles = () => StyleSheet.create({
   },
 });
 
-export default CustomDateTimePicker;
+export default SimpleDatePicker;

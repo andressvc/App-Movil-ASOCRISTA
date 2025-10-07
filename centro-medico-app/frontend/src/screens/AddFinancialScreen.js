@@ -1,5 +1,5 @@
 // screens/AddFinancialScreen.js
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,8 @@ import {
   Platform,
   Modal,
   FlatList,
-  TextInput,
 } from 'react-native';
-import SimpleTextInput from '../components/SimpleTextInput';
+import FreeTextInput from '../components/FreeTextInput';
 import CustomDateTimePicker from '../components/DateTimePicker';
 import { Ionicons } from '@expo/vector-icons';
 import { financialService, patientService } from '../services/api';
@@ -24,25 +23,58 @@ const AddFinancialScreen = ({ navigation, route }) => {
   const { movementId } = route.params || {};
   const isEditing = !!movementId;
 
+  // Función para obtener la fecha actual en formato DD/MM/YYYY (local)
+  const getCurrentDateFormatted = () => {
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-  const [formData, setFormData] = useState({
+  // Función para formatear fecha a DD/MM/YYYY (visual)
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Función para convertir DD/MM/YYYY a YYYY-MM-DD (para backend)
+  const formatDateForBackend = (dateString) => {
+    if (!dateString) return '';
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month}-${day}`;
+    }
+    return dateString;
+  };
+
+  // Estado inicial del formulario
+  const initialFormState = {
     tipo: 'ingreso',
     categoria: '',
     descripcion: '',
     monto: '',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: getCurrentDateFormatted(),
     paciente_id: '',
     metodo_pago: 'efectivo',
     comprobante: '',
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const [patients, setPatients] = useState([]);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   const movementTypes = [
     { value: 'ingreso', label: 'Ingreso', color: Colors.success },
@@ -51,25 +83,19 @@ const AddFinancialScreen = ({ navigation, route }) => {
 
   const paymentMethods = [
     { value: 'efectivo', label: 'Efectivo' },
-    { value: 'tarjeta', label: 'Tarjeta' },
     { value: 'transferencia', label: 'Transferencia' },
     { value: 'cheque', label: 'Cheque' },
+    { value: 'deposito', label: 'Depósito' },
   ];
 
   const categories = {
     ingreso: [
-      'Consulta médica',
-      'Terapia individual',
-      'Terapia grupal',
-      'Evento especial',
-      'Otros ingresos',
+      'Transporte',
+      'Consumo en Tienda',
+      'Cuota Mensual',
     ],
     egreso: [
-      'Suministros médicos',
-      'Equipamiento',
-      'Servicios generales',
-      'Mantenimiento',
-      'Otros gastos',
+      'Gastos del centro',
     ],
   };
 
@@ -79,6 +105,39 @@ const AddFinancialScreen = ({ navigation, route }) => {
       loadMovement();
     }
   }, []);
+
+  // Actualizar fecha en tiempo real cada día
+  useEffect(() => {
+    const updateDate = () => {
+      if (!isEditing) {
+        setFormData(prev => ({
+          ...prev,
+          fecha: getCurrentDateFormatted()
+        }));
+      }
+    };
+
+    // Actualizar inmediatamente
+    updateDate();
+
+    // Calcular tiempo hasta el próximo cambio de día
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+
+    // Configurar timeout para la próxima medianoche
+    const timeout = setTimeout(() => {
+      updateDate();
+      // Después de la medianoche, actualizar cada 24 horas
+      const interval = setInterval(updateDate, 24 * 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    }, timeUntilMidnight);
+
+    return () => clearTimeout(timeout);
+  }, [isEditing]);
 
   const loadPatients = async () => {
     try {
@@ -94,6 +153,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
 
   const loadMovement = async () => {
     try {
+      setLoading(true);
       const response = await financialService.getMovement(movementId);
       if (response.success) {
         const movement = response.data;
@@ -102,7 +162,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
           categoria: movement.categoria,
           descripcion: movement.descripcion,
           monto: movement.monto.toString(),
-          fecha: movement.fecha,
+          fecha: formatDateForDisplay(movement.fecha),
           paciente_id: movement.paciente_id || '',
           metodo_pago: movement.metodo_pago || 'efectivo',
           comprobante: movement.comprobante || '',
@@ -114,6 +174,8 @@ const AddFinancialScreen = ({ navigation, route }) => {
     } catch (error) {
       console.error('Error loading movement:', error);
       Alert.alert('Error', 'No se pudo cargar la información del movimiento');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,13 +199,46 @@ const AddFinancialScreen = ({ navigation, route }) => {
     setPatientSearch('');
   };
 
+  const handleInputChange = (field, value) => {
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Si cambia el tipo de movimiento, resetear la categoría
+      if (field === 'tipo') {
+        newData.categoria = '';
+      }
+      
+      return newData;
+    });
+    
+    // Limpiar error del campo cuando el usuario haga una selección
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleTextChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Limpiar error del campo cuando el usuario empiece a escribir
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
   const validateFormData = () => {
     const rules = {
       tipo: (value) => !value ? 'Debe seleccionar un tipo' : null,
       categoria: (value) => !value ? 'La categoría es requerida' : null,
       descripcion: ValidationRules.description,
       monto: ValidationRules.amount,
-      fecha: ValidationRules.date,
+      fecha: (value) => {
+        if (!value) return 'La fecha es requerida';
+        const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+        if (!dateRegex.test(value)) return 'La fecha debe estar en formato DD/MM/YYYY';
+        return null;
+      },
+      paciente_id: (value) => !value ? 'El paciente es requerido' : null,
       metodo_pago: (value) => !value ? 'El método de pago es requerido' : null,
     };
 
@@ -151,95 +246,100 @@ const AddFinancialScreen = ({ navigation, route }) => {
   };
 
   const handleSave = async () => {
-    const validation = validateFormData();
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    // Validación simple
+    if (!formData.categoria || !formData.descripcion || !formData.monto) {
+      Alert.alert('Error', 'Completa todos los campos requeridos');
       return;
     }
 
+    // MOSTRAR ALERTA EN CENTRO DE PANTALLA
+    setShowSuccessAlert(true);
+
+    // Limpiar campos INMEDIATAMENTE
+    setFormData({
+      tipo: 'ingreso',
+      categoria: '',
+      descripcion: '',
+      monto: '',
+      fecha: getCurrentDateFormatted(),
+      paciente_id: '',
+      metodo_pago: 'efectivo',
+      comprobante: '',
+    });
+    setSelectedPatient(null);
+    setErrors({});
+
+    setLoading(true);
+
     try {
-      setLoading(true);
-      
       const movementData = {
         ...formData,
-        descripcion: cleanText(formData.descripcion),
-        monto: parseFloat(formData.monto),
-        comprobante: cleanText(formData.comprobante),
+        monto: parseFloat(formData.monto) || 0,
+        fecha: formatDateForBackend(formData.fecha),
         paciente_id: formData.paciente_id || null,
       };
 
-      let response;
       if (isEditing) {
-        response = await financialService.updateMovement(movementId, movementData);
+        await financialService.updateMovement(movementId, movementData);
+        navigation.goBack();
       } else {
-        response = await financialService.createMovement(movementData);
-      }
-
-      if (response.success) {
-        Alert.alert(
-          'Éxito',
-          isEditing ? 'Movimiento actualizado correctamente' : 'Movimiento creado correctamente',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      } else {
-        Alert.alert('Error', response.message || 'Error al guardar el movimiento');
+        await financialService.createMovement(movementData);
       }
     } catch (error) {
-      console.error('Error saving movement:', error);
-      Alert.alert('Error', 'No se pudo guardar el movimiento');
-    } finally {
-      setLoading(false);
+      console.error('Error:', error);
     }
+
+    setLoading(false);
   };
 
-  const handleInputChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  }, []);
-
-  const InputField = ({ label, field, placeholder, keyboardType = 'default', multiline = false, required = false, options = null }) => {
-    const handleFieldChange = (value) => {
-      handleInputChange(field, value);
-    };
-
+  // Componente simple para campos de texto (igual que en AddPatientScreen)
+  const TextField = ({ label, field, placeholder, keyboardType = 'default', multiline = false, required = false }) => {
     return (
       <View style={styles.inputContainer}>
         <Text style={styles.label}>
           {label} {required && <Text style={styles.required}>*</Text>}
         </Text>
-        
-        {options ? (
-          <View style={styles.optionsContainer}>
-            {options.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.optionButton,
-                  formData[field] === option.value && styles.optionButtonSelected
-                ]}
-                onPress={() => handleInputChange(option.value)}
-              >
-                <Text style={[
-                  styles.optionText,
-                  formData[field] === option.value && styles.optionTextSelected
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <SimpleTextInput
-            placeholder={placeholder}
-            value={formData[field]}
-            onChangeText={handleFieldChange}
-            keyboardType={keyboardType}
-            multiline={multiline}
-            editable={!loading}
-            error={errors[field]}
-            returnKeyType={multiline ? 'default' : 'next'}
-          />
-        )}
-        
+        <FreeTextInput
+          placeholder={placeholder}
+          value={formData[field]}
+          onChangeText={(value) => handleTextChange(field, value)}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          editable={!loading}
+          error={errors[field]}
+          returnKeyType={multiline ? 'default' : 'next'}
+        />
+        {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
+      </View>
+    );
+  };
+
+  // Componente simple para campos de selección
+  const SelectField = ({ label, field, options, required = false }) => {
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>
+          {label} {required && <Text style={styles.required}>*</Text>}
+        </Text>
+        <View style={styles.optionsContainer}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.optionButton,
+                formData[field] === option.value && styles.optionButtonSelected
+              ]}
+              onPress={() => handleInputChange(field, option.value)}
+            >
+              <Text style={[
+                styles.optionText,
+                formData[field] === option.value && styles.optionTextSelected
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         {errors[field] && <Text style={styles.errorText}>{errors[field]}</Text>}
       </View>
     );
@@ -291,7 +391,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
         {/* Form */}
         <View style={styles.form}>
           {/* Tipo de Movimiento */}
-          <InputField
+          <SelectField
             label="Tipo de Movimiento"
             field="tipo"
             required
@@ -326,39 +426,60 @@ const AddFinancialScreen = ({ navigation, route }) => {
           </View>
 
           {/* Descripción */}
-          <InputField
-            label="Descripción"
-            field="descripcion"
-            placeholder="Descripción del movimiento"
-            multiline
-            required
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>
+              Descripción <Text style={styles.required}>*</Text>
+            </Text>
+            <FreeTextInput
+              placeholder="Descripción del movimiento"
+              value={formData.descripcion}
+              onChangeText={(value) => handleTextChange('descripcion', value)}
+              multiline
+              editable={!loading}
+              error={errors.descripcion}
+            />
+            {errors.descripcion && <Text style={styles.errorText}>{errors.descripcion}</Text>}
+          </View>
 
           {/* Monto y Fecha */}
           <View style={styles.row}>
             <View style={styles.halfWidth}>
-              <InputField
-                label="Monto"
-                field="monto"
-                placeholder="0.00"
-                keyboardType="numeric"
-                required
-              />
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>
+                  Monto <Text style={styles.required}>*</Text>
+                </Text>
+                <FreeTextInput
+                  placeholder="0.00"
+                  value={formData.monto}
+                  onChangeText={(value) => handleTextChange('monto', value)}
+                  keyboardType="numeric"
+                  editable={!loading}
+                  error={errors.monto}
+                />
+                {errors.monto && <Text style={styles.errorText}>{errors.monto}</Text>}
+              </View>
             </View>
             <View style={styles.halfWidth}>
-              <InputField
-                label="Fecha"
-                field="fecha"
-                placeholder="YYYY-MM-DD"
-                keyboardType="default"
-                required
-              />
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>
+                  Fecha <Text style={styles.required}>*</Text>
+                </Text>
+                <FreeTextInput
+                  placeholder="DD/MM/YYYY"
+                  value={formData.fecha}
+                  onChangeText={(value) => handleTextChange('fecha', value)}
+                  keyboardType="default"
+                  editable={!loading}
+                  error={errors.fecha}
+                />
+                {errors.fecha && <Text style={styles.errorText}>{errors.fecha}</Text>}
+              </View>
             </View>
           </View>
 
           {/* Selección de Paciente */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Paciente (Opcional)</Text>
+            <Text style={styles.label}>Paciente <Text style={styles.required}>*</Text></Text>
             <TouchableOpacity
               style={styles.patientSelector}
               onPress={() => setShowPatientModal(true)}
@@ -369,7 +490,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
               ]}>
                 {selectedPatient 
                   ? `${selectedPatient.nombre} ${selectedPatient.apellido} (${selectedPatient.codigo})`
-                  : 'Seleccionar paciente (opcional)'
+                  : 'Seleccionar paciente'
                 }
               </Text>
               <Ionicons name="chevron-down" size={20} color={Colors.gray[500]} />
@@ -377,7 +498,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
           </View>
 
           {/* Método de Pago */}
-          <InputField
+          <SelectField
             label="Método de Pago"
             field="metodo_pago"
             required
@@ -385,11 +506,18 @@ const AddFinancialScreen = ({ navigation, route }) => {
           />
 
           {/* Comprobante */}
-          <InputField
-            label="Comprobante (Opcional)"
-            field="comprobante"
-            placeholder="Número de comprobante o referencia"
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Comprobante (Opcional)</Text>
+            <FreeTextInput
+              placeholder="Número de comprobante o referencia"
+              value={formData.comprobante}
+              onChangeText={(value) => handleTextChange('comprobante', value)}
+              keyboardType="default"
+              editable={!loading}
+              error={errors.comprobante}
+            />
+            {errors.comprobante && <Text style={styles.errorText}>{errors.comprobante}</Text>}
+          </View>
         </View>
       </ScrollView>
 
@@ -414,7 +542,7 @@ const AddFinancialScreen = ({ navigation, route }) => {
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
               <Ionicons name="search" size={20} color={Colors.gray[500]} />
-              <SimpleTextInput
+              <FreeTextInput
                 placeholder="Buscar paciente..."
                 value={patientSearch}
                 onChangeText={handlePatientSearch}
@@ -432,6 +560,26 @@ const AddFinancialScreen = ({ navigation, route }) => {
           />
         </View>
       </Modal>
+
+      {/* Modal de Éxito en Centro de Pantalla */}
+      <Modal
+        visible={showSuccessAlert}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successModalTitle}>Guardado Exitosamente</Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => setShowSuccessAlert(false)}
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </KeyboardAvoidingView>
   );
 };
@@ -629,6 +777,38 @@ const styles = StyleSheet.create({
   patientCode: {
     fontSize: 14,
     color: Colors.text.secondary,
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    minWidth: 250,
+    ...Theme.shadows.lg,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.success,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  successModalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successModalButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

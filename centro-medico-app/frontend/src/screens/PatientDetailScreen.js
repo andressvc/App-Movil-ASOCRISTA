@@ -14,15 +14,31 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { patientService, appointmentService, financialService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import ConnectionTest from '../components/ConnectionTest';
 
 const PatientDetailScreen = ({ route, navigation }) => {
-  const { id } = route.params;
+  const { id } = route.params || {};
   const [patient, setPatient] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [financialHistory, setFinancialHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
+
+  // Validar que tenemos un ID válido
+  if (!id) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
+        <Text style={styles.errorTitle}>Error</Text>
+        <Text style={styles.errorMessage}>ID de paciente no válido</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   useEffect(() => {
     loadPatientData();
@@ -31,24 +47,54 @@ const PatientDetailScreen = ({ route, navigation }) => {
   const loadPatientData = async () => {
     try {
       setLoading(true);
-      const [patientResponse, appointmentsResponse, financialResponse] = await Promise.all([
-        patientService.getPatient(id),
-        appointmentService.getAppointments({ paciente_id: id }),
-        financialService.getMovements({ paciente_id: id })
-      ]);
+      console.log('Loading patient data for ID:', id);
+      
+      // Solo cargar datos del paciente por ahora
+      const patientResponse = await patientService.getPatient(id);
+      console.log('Patient response:', patientResponse);
 
       if (patientResponse.success) {
-        setPatient(patientResponse.data);
+        setPatient(patientResponse.data.paciente);
+        console.log('Patient loaded successfully:', patientResponse.data.paciente);
+      } else {
+        console.error('Patient response not successful:', patientResponse);
+        Alert.alert('Error', patientResponse.message || 'No se pudo cargar la información del paciente');
+        return;
       }
-      if (appointmentsResponse.success) {
-        setAppointments(appointmentsResponse.data.citas || []);
+      
+      // Cargar citas y movimientos financieros por separado (opcional)
+      try {
+        const appointmentsResponse = await appointmentService.getAppointments({ paciente_id: id });
+        if (appointmentsResponse.success) {
+          setAppointments(appointmentsResponse.data.citas || []);
+        }
+      } catch (error) {
+        console.log('Error loading appointments:', error);
       }
-      if (financialResponse.success) {
-        setFinancialHistory(financialResponse.data.movimientos || []);
+
+      try {
+        const financialResponse = await financialService.getMovements({ paciente_id: id });
+        if (financialResponse.success) {
+          setFinancialHistory(financialResponse.data.movimientos || []);
+        }
+      } catch (error) {
+        console.log('Error loading financial data:', error);
       }
     } catch (error) {
       console.error('Error loading patient data:', error);
-      Alert.alert('Error', 'No se pudo cargar la información del paciente');
+      
+      let errorMessage = 'No se pudo cargar la información del paciente';
+      
+      if (error.code === 'NETWORK_ERROR' || !error.response) {
+        errorMessage = 'Error de conexión. Verifica que el backend esté ejecutándose.';
+        setConnectionError(true);
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Paciente no encontrado.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Error del servidor. Intenta más tarde.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -110,10 +156,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return `Q ${parseFloat(amount).toFixed(2)}`;
   };
 
   const getAppointmentStatusColor = (estado) => {
@@ -148,6 +191,17 @@ const PatientDetailScreen = ({ route, navigation }) => {
       </View>
     </TouchableOpacity>
   );
+
+  if (connectionError) {
+    return (
+      <ConnectionTest 
+        onConnectionSuccess={() => {
+          setConnectionError(false);
+          loadPatientData();
+        }}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -588,6 +642,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,

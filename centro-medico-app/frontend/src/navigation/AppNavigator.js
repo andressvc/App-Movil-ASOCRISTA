@@ -26,6 +26,7 @@ import PersonalDataScreen from '../screens/PersonalDataScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import SupportScreen from '../screens/SupportScreen';
 import AboutScreen from '../screens/AboutScreen';
+import BitacoraScreen from '../screens/BitacoraScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -234,6 +235,11 @@ const ProfileStack = () => (
       component={AboutScreen}
       options={{ title: 'Acerca de' }}
     />
+    <Stack.Screen 
+      name="Bitacora" 
+      component={BitacoraScreen}
+      options={{ title: 'Bitácora' }}
+    />
   </Stack.Navigator>
 );
 
@@ -342,19 +348,23 @@ const MainTabs = () => (
 const AppNavigator = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
+  console.log('AppNavigator: Estado de autenticación:', { isAuthenticated, isLoading });
+
   if (isLoading) {
+    console.log('AppNavigator: Mostrando SplashScreen (cargando...)');
     return <SplashScreen />;
   }
 
+  console.log('AppNavigator: Renderizando navegación principal');
+  console.log('AppNavigator: Usuario autenticado:', isAuthenticated);
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
-          <Stack.Screen name="Main" component={MainTabs} />
-        ) : (
-          <Stack.Screen name="Auth" component={AuthStack} />
-        )}
-      </Stack.Navigator>
+      {isAuthenticated ? (
+        <MainTabs />
+      ) : (
+        <AuthStack />
+      )}
     </NavigationContainer>
   );
 };

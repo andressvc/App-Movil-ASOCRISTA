@@ -34,11 +34,31 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Manejar errores de conexión
+    if (!error.response) {
+      console.error('API: Error de conexión - Backend no disponible');
+      console.error('API: Verifica que el backend esté ejecutándose en:', API_CONFIG.BASE_URL);
+      console.error('API: Error completo:', error.message);
+      console.error('API: Código de error:', error.code);
+      
+      // Crear un error personalizado para errores de conexión
+      const connectionError = new Error(`Error de conexión. Verifica que el backend esté ejecutándose en ${API_CONFIG.BASE_URL}`);
+      connectionError.code = 'CONNECTION_ERROR';
+      connectionError.originalError = error;
+      return Promise.reject(connectionError);
+    }
+    
     if (error.response?.status === 401) {
-      // Token expirado o inválido
-      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
-      // Aquí podrías navegar al login
+      // Token expirado o inválido - limpiar todos los datos de autenticación
+      console.log('API: Token expirado, limpiando datos de autenticación...');
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+        await AsyncStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+        console.log('API: Datos de autenticación limpiados');
+      } catch (cleanupError) {
+        console.error('API: Error limpiando datos de autenticación:', cleanupError);
+      }
     }
     return Promise.reject(error);
   }
@@ -145,6 +165,11 @@ export const appointmentService = {
   
   getAppointmentsByDate: async (date) => {
     const response = await api.get(`/citas/dia/${date}`);
+    return response.data;
+  },
+  
+  updateAppointmentStatus: async (id, status) => {
+    const response = await api.patch(`/citas/${id}/estado`, { estado: status });
     return response.data;
   },
 };

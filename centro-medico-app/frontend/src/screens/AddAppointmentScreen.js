@@ -13,8 +13,9 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import SimpleTextInput from '../components/SimpleTextInput';
+import FreeTextInput from '../components/FreeTextInput';
 import CustomDateTimePicker from '../components/DateTimePicker';
+import TimeSelector from '../components/TimeSelector';
 import { Ionicons } from '@expo/vector-icons';
 import { appointmentService, patientService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
@@ -25,14 +26,22 @@ const AddAppointmentScreen = ({ navigation, route }) => {
   const isEditing = !!appointmentId;
 
 
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [formData, setFormData] = useState({
     paciente_id: '',
-    tipo: 'terapia_individual',
+    tipo: 'visita_familiar',
     titulo: '',
     descripcion: '',
-    fecha: new Date().toISOString().split('T')[0],
-    hora_inicio: '',
-    hora_fin: '',
+    fecha: getLocalDateString(),
+    hora_inicio: '09:00',
+    hora_fin: '10:00',
     notas: '',
   });
 
@@ -43,12 +52,11 @@ const AddAppointmentScreen = ({ navigation, route }) => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   const appointmentTypes = [
-    { value: 'terapia_individual', label: 'Terapia Individual' },
-    { value: 'terapia_grupal', label: 'Terapia Grupal' },
+    { value: 'visita_familiar', label: 'Visita Familiar' },
     { value: 'evento_especial', label: 'Evento Especial' },
-    { value: 'consulta', label: 'Consulta' },
   ];
 
   useEffect(() => {
@@ -80,7 +88,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
           tipo: appointment.tipo,
           titulo: appointment.titulo,
           descripcion: appointment.descripcion || '',
-          fecha: appointment.fecha,
+          fecha: appointment.fecha ? String(appointment.fecha).split('T')[0] : getLocalDateString(),
           hora_inicio: appointment.hora_inicio,
           hora_fin: appointment.hora_fin,
           notas: appointment.notas || '',
@@ -146,14 +154,35 @@ const AddAppointmentScreen = ({ navigation, route }) => {
       return;
     }
 
+    // MOSTRAR ALERTA EN CENTRO DE PANTALLA
+    setShowSuccessAlert(true);
+
+    // Limpiar campos INMEDIATAMENTE si no es edición
+    if (!isEditing) {
+      setFormData({
+        paciente_id: '',
+        tipo: 'visita_familiar',
+        titulo: '',
+        descripcion: '',
+        fecha: getLocalDateString(),
+        hora_inicio: '09:00',
+        hora_fin: '10:00',
+        notas: '',
+      });
+      setSelectedPatient(null);
+      setErrors({});
+    }
+
+    setLoading(true);
+
     try {
-      setLoading(true);
-      
       const appointmentData = {
         ...formData,
         titulo: cleanText(formData.titulo),
         descripcion: cleanText(formData.descripcion),
         notas: cleanText(formData.notas),
+        // Enviar solo fecha (YYYY-MM-DD), sin hora
+        fecha: formData.fecha ? String(formData.fecha).split('T')[0] : null,
       };
 
       let response;
@@ -167,22 +196,30 @@ const AddAppointmentScreen = ({ navigation, route }) => {
         Alert.alert(
           'Éxito',
           isEditing ? 'Cita actualizada correctamente' : 'Cita creada correctamente',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
         );
       } else {
-        Alert.alert('Error', response.message || 'Error al guardar la cita');
+        Alert.alert('Error', response.message || 'No se pudo guardar la cita');
       }
     } catch (error) {
       console.error('Error saving appointment:', error);
-      Alert.alert('Error', 'No se pudo guardar la cita');
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', 'No se pudo guardar la cita. Verifica tu conexión.');
     }
+
+    setLoading(false);
   };
 
   const handleInputChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  }, []);
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  }, [errors]);
 
   const InputField = ({ label, field, placeholder, keyboardType = 'default', multiline = false, required = false, options = null }) => {
     const handleFieldChange = (value) => {
@@ -204,7 +241,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
                   styles.optionButton,
                   formData[field] === option.value && styles.optionButtonSelected
                 ]}
-                onPress={() => handleInputChange(option.value)}
+                onPress={() => handleInputChange(field, option.value)}
               >
                 <Text style={[
                   styles.optionText,
@@ -216,7 +253,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
             ))}
           </View>
         ) : (
-          <SimpleTextInput
+          <FreeTextInput
             placeholder={placeholder}
             value={formData[field]}
             onChangeText={handleFieldChange}
@@ -225,6 +262,10 @@ const AddAppointmentScreen = ({ navigation, route }) => {
             editable={!loading}
             error={errors[field]}
             returnKeyType={multiline ? 'default' : 'next'}
+            autoCapitalize="sentences"
+            autoCorrect
+            blurOnSubmit={multiline ? false : true}
+            style={multiline ? { minHeight: 80, textAlignVertical: 'top' } : null}
           />
         )}
         
@@ -310,63 +351,95 @@ const AddAppointmentScreen = ({ navigation, route }) => {
           />
 
           {/* Título */}
-          <InputField
-            label="Título"
-            field="titulo"
-            placeholder="Título de la cita"
-            required
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>
+              Título <Text style={styles.required}>*</Text>
+            </Text>
+            <FreeTextInput
+              placeholder="Título de la cita"
+              value={formData.titulo}
+              onChangeText={(text) => handleInputChange('titulo', text)}
+              autoCapitalize="sentences"
+              autoCorrect
+              returnKeyType="next"
+              editable={!loading}
+              error={errors.titulo}
+            />
+            {errors.titulo && <Text style={styles.errorText}>{errors.titulo}</Text>}
+          </View>
 
           {/* Descripción */}
-          <InputField
-            label="Descripción"
-            field="descripcion"
-            placeholder="Descripción de la cita"
-            multiline
-            required
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>
+              Descripción <Text style={styles.required}>*</Text>
+            </Text>
+            <FreeTextInput
+              placeholder="Descripción de la cita"
+              value={formData.descripcion}
+              onChangeText={(text) => handleInputChange('descripcion', text)}
+              autoCapitalize="sentences"
+              autoCorrect
+              multiline
+              blurOnSubmit={false}
+              editable={!loading}
+              error={errors.descripcion}
+              style={{ minHeight: 100, textAlignVertical: 'top' }}
+            />
+            {errors.descripcion && <Text style={styles.errorText}>{errors.descripcion}</Text>}
+          </View>
 
-          {/* Fecha y Hora */}
+          {/* Fecha */}
           <View style={styles.dateTimeContainer}>
             <CustomDateTimePicker
-              label="Fecha y Hora de Inicio"
-              value={formData.fecha && formData.hora_inicio ? 
-                new Date(`${formData.fecha}T${formData.hora_inicio}`) : null}
+              label="Fecha"
+              value={formData.fecha ? new Date(formData.fecha) : null}
               onChange={(date) => {
                 const dateStr = date.toISOString().split('T')[0];
-                const timeStr = date.toTimeString().split(' ')[0].substring(0, 5);
                 setFormData(prev => ({
                   ...prev,
-                  fecha: dateStr,
-                  hora_inicio: timeStr
+                  fecha: dateStr
                 }));
               }}
-              error={errors.fecha || errors.hora_inicio}
+              error={errors.fecha}
+              mode="date"
+              showTime={false}
             />
           </View>
 
-          <View style={styles.row}>
-            <View style={styles.halfWidth}>
-              <InputField
-                label="Hora Fin"
-                field="hora_fin"
-                placeholder="HH:MM"
-                keyboardType="default"
-                required
-              />
-            </View>
-            <View style={styles.halfWidth}>
-              {/* Espacio vacío para mantener el layout */}
-            </View>
-          </View>
+          {/* Hora de Inicio */}
+          <TimeSelector
+            label="Hora de Inicio"
+            value={formData.hora_inicio}
+            onChange={(time) => setFormData(prev => ({ ...prev, hora_inicio: time }))}
+            error={errors.hora_inicio}
+            required
+          />
+
+          <TimeSelector
+            label="Hora de Fin"
+            value={formData.hora_fin}
+            onChange={(time) => setFormData(prev => ({ ...prev, hora_fin: time }))}
+            error={errors.hora_fin}
+            required
+          />
 
           {/* Notas */}
-          <InputField
-            label="Notas"
-            field="notas"
-            placeholder="Notas adicionales (opcional)"
-            multiline
-          />
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Notas</Text>
+            <FreeTextInput
+              placeholder="Notas adicionales (opcional)"
+              value={formData.notas}
+              onChangeText={(text) => handleInputChange('notas', text)}
+              autoCapitalize="sentences"
+              autoCorrect
+              multiline
+              blurOnSubmit={false}
+              editable={!loading}
+              error={errors.notas}
+              style={{ minHeight: 80, textAlignVertical: 'top' }}
+            />
+            {errors.notas && <Text style={styles.errorText}>{errors.notas}</Text>}
+          </View>
         </View>
       </ScrollView>
 
@@ -391,7 +464,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
               <Ionicons name="search" size={20} color={Colors.gray[500]} />
-              <SimpleTextInput
+              <FreeTextInput
                 placeholder="Buscar paciente..."
                 value={patientSearch}
                 onChangeText={handlePatientSearch}
@@ -407,6 +480,30 @@ const AddAppointmentScreen = ({ navigation, route }) => {
             style={styles.patientsList}
             showsVerticalScrollIndicator={false}
           />
+        </View>
+      </Modal>
+
+      {/* Modal de Éxito en Centro de Pantalla */}
+      <Modal
+        visible={showSuccessAlert}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successModalTitle}>Guardado Exitosamente</Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => {
+                setShowSuccessAlert(false);
+                if (isEditing) {
+                  navigation.goBack();
+                }
+              }}
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -609,6 +706,38 @@ const styles = StyleSheet.create({
   patientCode: {
     fontSize: 14,
     color: Colors.text.secondary,
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    minWidth: 250,
+    ...Theme.shadows.lg,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.success,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  successModalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successModalButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

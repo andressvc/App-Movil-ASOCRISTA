@@ -53,8 +53,14 @@ const MovimientoFinanciero = sequelize.define('MovimientoFinanciero', {
     }
   },
   metodo_pago: {
-    type: DataTypes.ENUM('efectivo', 'tarjeta', 'transferencia', 'cheque'),
-    allowNull: true
+    type: DataTypes.ENUM('efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito'),
+    allowNull: true,
+    validate: {
+      isIn: {
+        args: [['efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito']],
+        msg: 'Método de pago no válido'
+      }
+    }
   },
   comprobante: {
     type: DataTypes.STRING(255),

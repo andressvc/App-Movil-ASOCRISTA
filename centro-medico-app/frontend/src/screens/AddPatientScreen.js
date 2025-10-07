@@ -9,9 +9,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
-import SimpleTextInput from '../components/SimpleTextInput';
-import CustomDateTimePicker from '../components/DateTimePicker';
+import FreeTextInput from '../components/FreeTextInput';
+import SimpleDatePicker from '../components/SimpleDatePicker';
 import { Ionicons } from '@expo/vector-icons';
 import { patientService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
@@ -35,6 +36,7 @@ const AddPatientScreen = ({ navigation, route }) => {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -74,7 +76,9 @@ const AddPatientScreen = ({ navigation, route }) => {
       apellido: ValidationRules.name,
       telefono: ValidationRules.phone,
       telefono_emergencia: ValidationRules.phone,
-      edad: ValidationRules.age,
+      contacto_emergencia: ValidationRules.name,
+      // Solo validar edad si no se calculó automáticamente
+      ...(formData.fecha_nacimiento ? {} : { edad: ValidationRules.age }),
       direccion: ValidationRules.address,
       historial_medico: ValidationRules.medicalHistory,
     };
@@ -89,9 +93,28 @@ const AddPatientScreen = ({ navigation, route }) => {
       return;
     }
 
-    try {
-      setLoading(true);
+    // MOSTRAR ALERTA EN CENTRO DE PANTALLA
+    setShowSuccessAlert(true);
 
+    // Limpiar campos INMEDIATAMENTE
+    if (!isEditing) {
+      setFormData({
+        nombre: '',
+        apellido: '',
+        fecha_nacimiento: null,
+        edad: '',
+        telefono: '',
+        direccion: '',
+        contacto_emergencia: '',
+        telefono_emergencia: '',
+        historial_medico: '',
+      });
+      setErrors({});
+    }
+
+    setLoading(true);
+
+    try {
       const patientData = {
         ...formData,
         nombre: formatName(cleanText(formData.nombre)),
@@ -104,68 +127,48 @@ const AddPatientScreen = ({ navigation, route }) => {
         fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento.toISOString().split('T')[0] : null,
       };
 
-      let response;
       if (isEditing) {
-        response = await patientService.updatePatient(patientId, patientData);
+        await patientService.updatePatient(patientId, patientData);
       } else {
-        response = await patientService.createPatient(patientData);
-      }
-
-      if (response.success) {
-        if (isEditing) {
-          Alert.alert(
-            'Éxito',
-            'Paciente actualizado correctamente',
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.goBack(),
-              },
-            ]
-          );
-        } else {
-          // Limpiar campos después de crear exitosamente
-        setFormData({
-          nombre: '',
-          apellido: '',
-          fecha_nacimiento: null,
-          edad: '',
-          telefono: '',
-          direccion: '',
-          contacto_emergencia: '',
-          telefono_emergencia: '',
-          historial_medico: '',
-        });
-          setErrors({});
-          
-          Alert.alert(
-            'Éxito',
-            'Paciente creado correctamente',
-            [
-              {
-                text: 'Crear otro',
-                onPress: () => {}, // No hacer nada, quedarse en la pantalla
-              },
-              {
-                text: 'Ver lista',
-                onPress: () => navigation.goBack(),
-              },
-            ]
-          );
-        }
-      } else {
-        Alert.alert('Error', response.message || 'Error al guardar el paciente');
+        await patientService.createPatient(patientData);
       }
     } catch (error) {
       console.error('Error saving patient:', error);
-      Alert.alert('Error', 'No se pudo guardar el paciente');
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
+  };
+
+  // Función para calcular la edad basada en la fecha de nacimiento
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return '';
+    
+    const today = new Date();
+    const birth = new Date(birthDate);
+    
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    // Si aún no ha cumplido años este año, restar 1
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age >= 0 ? age.toString() : '';
   };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Si se cambia la fecha de nacimiento, calcular automáticamente la edad
+    if (field === 'fecha_nacimiento' && value) {
+      const calculatedAge = calculateAge(value);
+      setFormData(prev => ({ 
+        ...prev, 
+        [field]: value, 
+        edad: calculatedAge 
+      }));
+    }
     
     // Limpiar error del campo cuando el usuario empiece a escribir
     if (errors[field]) {
@@ -209,7 +212,7 @@ const AddPatientScreen = ({ navigation, route }) => {
             
             <View style={styles.row}>
               <View style={styles.halfWidth}>
-                <SimpleTextInput
+                <FreeTextInput
                   label="Nombre *"
                   placeholder="Nombre del paciente"
                   value={formData.nombre}
@@ -218,7 +221,7 @@ const AddPatientScreen = ({ navigation, route }) => {
                 />
               </View>
               <View style={styles.halfWidth}>
-                <SimpleTextInput
+                <FreeTextInput
                   label="Apellido *"
                   placeholder="Apellido del paciente"
                   value={formData.apellido}
@@ -230,33 +233,50 @@ const AddPatientScreen = ({ navigation, route }) => {
 
             <View style={styles.row}>
               <View style={styles.halfWidth}>
-                <SimpleTextInput
+                <SimpleDatePicker
                   label="Fecha de Nacimiento"
-                  placeholder="YYYY-MM-DD"
-                  value={formData.fecha_nacimiento ? formData.fecha_nacimiento.toISOString().split('T')[0] : ''}
-                  onChangeText={(value) => {
-                    if (value) {
-                      handleInputChange('fecha_nacimiento', new Date(value));
-                    } else {
-                      handleInputChange('fecha_nacimiento', null);
-                    }
-                  }}
+                  placeholder="Seleccionar fecha"
+                  value={formData.fecha_nacimiento}
+                  onChange={(date) => handleInputChange('fecha_nacimiento', date)}
                   error={errors.fecha_nacimiento}
                 />
               </View>
               <View style={styles.halfWidth}>
-                <SimpleTextInput
-                  label="Edad"
-                  placeholder="Edad en años"
-                  keyboardType="numeric"
-                  value={formData.edad}
-                  onChangeText={(value) => handleInputChange('edad', value)}
-                  error={errors.edad}
-                />
+                <View style={styles.ageContainer}>
+                  <FreeTextInput
+                    label="Edad"
+                    placeholder={formData.fecha_nacimiento ? "Se calcula automáticamente" : "Edad en años"}
+                    keyboardType="numeric"
+                    value={formData.edad}
+                    onChangeText={(value) => handleInputChange('edad', value)}
+                    error={errors.edad}
+                    editable={!formData.fecha_nacimiento}
+                    style={formData.fecha_nacimiento ? styles.autoCalculatedField : null}
+                  />
+                  {formData.fecha_nacimiento && (
+                    <TouchableOpacity
+                      style={styles.clearDateButton}
+                      onPress={() => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          fecha_nacimiento: null, 
+                          edad: '' 
+                        }));
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={20} color={Colors.gray[500]} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {formData.fecha_nacimiento && (
+                  <Text style={styles.autoCalculatedText}>
+                    Calculado automáticamente - Toca la X para editar manualmente
+                  </Text>
+                )}
               </View>
             </View>
 
-            <SimpleTextInput
+            <FreeTextInput
               label="Teléfono"
               placeholder="Número de teléfono"
               keyboardType="phone-pad"
@@ -265,7 +285,7 @@ const AddPatientScreen = ({ navigation, route }) => {
               error={errors.telefono}
             />
 
-            <SimpleTextInput
+            <FreeTextInput
               label="Dirección"
               placeholder="Dirección completa"
               multiline
@@ -279,14 +299,15 @@ const AddPatientScreen = ({ navigation, route }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contacto de Emergencia</Text>
             
-            <SimpleTextInput
+            <FreeTextInput
               label="Nombre del Contacto"
               placeholder="Nombre del contacto de emergencia"
               value={formData.contacto_emergencia}
               onChangeText={(value) => handleInputChange('contacto_emergencia', value)}
+              error={errors.contacto_emergencia}
             />
 
-            <SimpleTextInput
+            <FreeTextInput
               label="Teléfono de Emergencia"
               placeholder="Teléfono del contacto de emergencia"
               keyboardType="phone-pad"
@@ -300,7 +321,7 @@ const AddPatientScreen = ({ navigation, route }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Historial Médico</Text>
             
-            <SimpleTextInput
+            <FreeTextInput
               label="Historial Médico"
               placeholder="Información médica relevante, alergias, medicamentos, etc."
               multiline
@@ -311,6 +332,30 @@ const AddPatientScreen = ({ navigation, route }) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Modal de Éxito en Centro de Pantalla */}
+      <Modal
+        visible={showSuccessAlert}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successModalTitle}>Guardado Exitosamente</Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => {
+                setShowSuccessAlert(false);
+                if (isEditing) {
+                  navigation.goBack();
+                }
+              }}
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -372,6 +417,57 @@ const styles = StyleSheet.create({
   },
   halfWidth: {
     width: '48%',
+  },
+  autoCalculatedField: {
+    backgroundColor: Colors.gray[100],
+    opacity: 0.8,
+  },
+  autoCalculatedText: {
+    fontSize: 12,
+    color: Colors.gray[500],
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  ageContainer: {
+    position: 'relative',
+  },
+  clearDateButton: {
+    position: 'absolute',
+    right: 10,
+    top: 30,
+    zIndex: 1,
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    minWidth: 250,
+    ...Theme.shadows.lg,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.success,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  successModalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successModalButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

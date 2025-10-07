@@ -86,7 +86,7 @@ const FinancialScreen = ({ navigation }) => {
           </Text>
         </View>
         <Text style={[styles.amountText, { color: getTypeColor(item.tipo) }]}>
-          {item.tipo === 'ingreso' ? '+' : '-'}${parseFloat(item.monto).toFixed(2)}
+          {item.tipo === 'ingreso' ? '+' : '-'}Q {parseFloat(item.monto).toFixed(2)}
         </Text>
       </View>
       
@@ -222,6 +222,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,

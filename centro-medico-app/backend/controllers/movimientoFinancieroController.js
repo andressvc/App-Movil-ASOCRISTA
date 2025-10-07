@@ -32,6 +32,15 @@ const crearMovimiento = async (req, res) => {
       });
     }
 
+    // Validar método de pago si se proporciona
+    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito'];
+    if (metodo_pago && !metodosValidos.includes(metodo_pago)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Método de pago no válido'
+      });
+    }
+
     // Crear movimiento
     const movimiento = await MovimientoFinanciero.create({
       usuario_id,
@@ -341,6 +350,15 @@ const actualizarMovimiento = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Movimiento financiero no encontrado'
+      });
+    }
+
+    // Validar método de pago si se proporciona
+    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito'];
+    if (metodo_pago && !metodosValidos.includes(metodo_pago)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Método de pago no válido'
       });
     }
 

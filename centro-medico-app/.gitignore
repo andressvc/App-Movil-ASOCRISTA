@@ -1,41 +1,62 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Root ignores for the full monorepo (backend + frontend)
 
-# dependencies
+# Node dependencies
 node_modules/
+backend/node_modules/
+frontend/node_modules/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
+# Environment files and secrets
+.env
+.env.*
+backend/.env*
+frontend/.env*
+*.pem
 *.p8
 *.p12
 *.key
+*.jks
 *.mobileprovision
 
-# Metro
-.metro-health-check*
-
-# debug
+# Logs and debug output
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+logs/
 
-# macOS
+# Caches and build artifacts
+.cache/
+.parcel-cache/
+.npm/
+.expo/
+frontend/dist/
+frontend/web-build/
+coverage/
+.nyc_output/
+
+# Platform-specific/Native build folders
+frontend/ios/
+frontend/android/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
 .DS_Store
-*.pem
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# local env files
-.env*.local
+# Reports and other generated files
+backend/reportes/*.pdf
 
-# typescript
-*.tsbuildinfo
+# SQLite or local DBs (if used)
+*.sqlite*
 
-# generated native folders
-/ios
-/android
+

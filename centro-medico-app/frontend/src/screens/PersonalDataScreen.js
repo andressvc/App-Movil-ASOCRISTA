@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Colors, Theme } from '../constants/Colors';
-import { SimpleTextInput } from '../components/SimpleTextInput';
+import FreeTextInput from '../components/FreeTextInput';
 
 const PersonalDataScreen = ({ navigation }) => {
   const { user, updateProfile } = useAuth();
@@ -92,7 +92,7 @@ const PersonalDataScreen = ({ navigation }) => {
           <Text style={[styles.label, { color: theme.text.primary }]}>
             Nombre Completo *
           </Text>
-          <SimpleTextInput
+          <FreeTextInput
             value={formData.nombre}
             onChangeText={(text) => setFormData({ ...formData, nombre: text })}
             placeholder="Ingresa tu nombre completo"
@@ -104,7 +104,7 @@ const PersonalDataScreen = ({ navigation }) => {
           <Text style={[styles.label, { color: theme.text.primary }]}>
             Correo Electrónico *
           </Text>
-          <SimpleTextInput
+          <FreeTextInput
             value={formData.email}
             onChangeText={(text) => setFormData({ ...formData, email: text })}
             placeholder="Ingresa tu correo electrónico"

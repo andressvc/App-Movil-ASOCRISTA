@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { appointmentService } from '../services/api';
@@ -42,10 +43,13 @@ const AppointmentsScreen = ({ navigation, route }) => {
       const response = await appointmentService.getAppointments(params);
       if (response.success) {
         setAppointments(response.data.citas || []);
+      } else {
+        console.error('Error response:', response.message);
+        Alert.alert('Error', response.message || 'No se pudieron cargar las citas');
       }
     } catch (error) {
       console.error('Error loading appointments:', error);
-      Alert.alert('Error', 'No se pudieron cargar las citas');
+      Alert.alert('Error', 'No se pudieron cargar las citas. Verifica tu conexión.');
     } finally {
       setLoading(false);
     }
@@ -98,6 +102,50 @@ const AppointmentsScreen = ({ navigation, route }) => {
     }
   };
 
+  const changeAppointmentStatus = async (appointmentId, newStatus) => {
+    try {
+      const response = await appointmentService.updateAppointmentStatus(appointmentId, newStatus);
+      if (response.success) {
+        // Actualizar la lista local
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt.id === appointmentId 
+              ? { ...apt, estado: newStatus }
+              : apt
+          )
+        );
+        Alert.alert('Éxito', 'Estado de la cita actualizado correctamente');
+      } else {
+        Alert.alert('Error', response.message || 'No se pudo actualizar el estado');
+      }
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
+    }
+  };
+
+  const showStatusChangeAlert = (item) => {
+    const statusOptions = [
+      { text: 'Programada', value: 'programada' },
+      { text: 'En Proceso', value: 'en_proceso' },
+      { text: 'Completada', value: 'completada' },
+      { text: 'Cancelada', value: 'cancelada' },
+      { text: 'No Asistió', value: 'no_asistio' },
+    ].filter(option => option.value !== item.estado);
+
+    Alert.alert(
+      'Cambiar Estado',
+      `Cita: ${item.titulo}\nPaciente: ${item.paciente?.nombre} ${item.paciente?.apellido}`,
+      [
+        ...statusOptions.map(option => ({
+          text: option.text,
+          onPress: () => changeAppointmentStatus(item.id, option.value)
+        })),
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    );
+  };
+
   const renderAppointment = ({ item }) => (
     <TouchableOpacity
       style={styles.appointmentCard}
@@ -109,9 +157,12 @@ const AppointmentsScreen = ({ navigation, route }) => {
             {item.hora_inicio} - {item.hora_fin}
           </Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.estado) }]}>
+        <TouchableOpacity
+          style={[styles.statusBadge, { backgroundColor: getStatusColor(item.estado) }]}
+          onPress={() => showStatusChangeAlert(item)}
+        >
           <Text style={styles.statusText}>{getStatusText(item.estado)}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
       
       <Text style={styles.patientName}>
@@ -208,17 +259,24 @@ const AppointmentsScreen = ({ navigation, route }) => {
       )}
 
       {/* Appointments List */}
-      <FlatList
-        data={appointments}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderAppointment}
-        contentContainerStyle={styles.listContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Cargando citas...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={appointments}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderAppointment}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Filters Modal */}
       <FiltersModal
@@ -362,6 +420,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   title: {
     fontSize: 20,
@@ -525,6 +584,17 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    marginTop: 12,
   },
   modalOverlay: {
     flex: 1,
