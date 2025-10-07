@@ -1,21 +1,6 @@
 //configuraciónbd
 const { Sequelize } = require('sequelize');
-const fs = require('fs');
 require('dotenv').config();
-
-// Opciones de dialecto (SSL) para MySQL gestionado
-const dialectOptions = {};
-if (process.env.DB_SSL === 'true' || process.env.DB_CA_CERT) {
-  dialectOptions.ssl = {
-    require: true,
-    // En producción (Render), desactivar verificación estricta para evitar errores de certificado
-    rejectUnauthorized: process.env.NODE_ENV !== 'production' && process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-    // Solo usar certificado en desarrollo, en producción confiar en el servidor
-    ca: process.env.NODE_ENV !== 'production' ? 
-      (process.env.DB_CA_CERT || (process.env.DB_CA_PATH ? fs.readFileSync(process.env.DB_CA_PATH, 'utf8') : undefined)) : 
-      undefined,
-  };
-}
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -25,6 +10,12 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: 'mysql',
+    dialectOptions: {
+      ssl: {
+        ca: process.env.DB_CA_CERT,
+        rejectUnauthorized: false, // necesario para certificados autofirmados
+      },
+    },
     logging: false,
     pool: {
       max: 10,
@@ -32,7 +23,6 @@ const sequelize = new Sequelize(
       acquire: 60000,
       idle: 10000
     },
-    dialectOptions,
   }
 );
 
