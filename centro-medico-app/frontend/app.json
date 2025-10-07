@@ -34,10 +34,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "asocrista-centro-medico"
-      }
-    }
+    "extra": {}
   }
 }
