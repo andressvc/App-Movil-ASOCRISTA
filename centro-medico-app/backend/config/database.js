@@ -5,12 +5,13 @@ require('dotenv').config();
 
 // Opciones de dialecto (SSL) para MySQL gestionado
 const dialectOptions = {};
-if (process.env.DB_SSL === 'true') {
+if (process.env.DB_SSL === 'true' || process.env.DB_CA_CERT) {
   dialectOptions.ssl = {
     require: true,
     // Permite desactivar la verificación estricta si es necesario: DB_SSL_REJECT_UNAUTHORIZED=false
     rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-    ca: process.env.DB_CA_PATH ? fs.readFileSync(process.env.DB_CA_PATH, 'utf8') : undefined,
+    // Soporta certificado desde archivo (DB_CA_PATH) o desde variable de entorno (DB_CA_CERT)
+    ca: process.env.DB_CA_CERT || (process.env.DB_CA_PATH ? fs.readFileSync(process.env.DB_CA_PATH, 'utf8') : undefined),
   };
 }
 
