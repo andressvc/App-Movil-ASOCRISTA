@@ -6,12 +6,12 @@ const getBaseURL = () => {
   if (Platform.OS === 'web') {
     // Para web, usa la URL de producción o localhost en desarrollo
     return process.env.NODE_ENV === 'production' 
-      ? 'https://tu-backend.railway.app/api'  // Cambia por tu URL de Railway
+      ? 'https://asocrista.onrender.com/api'  // URL de Render
       : 'http://localhost:3000/api';
   } else {
     // Para móvil, usa la URL de producción o localhost en desarrollo
     return process.env.NODE_ENV === 'production'
-      ? 'https://tu-backend.railway.app/api'  // Cambia por tu URL de Railway
+      ? 'https://asocrista.onrender.com/api'  // URL de Render
       : 'http://localhost:3000/api'; // Usar localhost para desarrollo local
   }
 };
