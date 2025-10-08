@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.asocrista.centromedico",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Esta aplicación usa Face ID para una autenticación rápida y segura."
+        "NSFaceIDUsageDescription": "Esta aplicación usa Face ID para una autenticación rápida y segura.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -34,6 +35,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {}
+    "extra": {
+      "eas": {
+        "projectId": "b0996d9e-2d59-4941-8b8d-6c96bcbddaf2"
+      }
+    },
+    "owner": "josevrx"
   }
 }
