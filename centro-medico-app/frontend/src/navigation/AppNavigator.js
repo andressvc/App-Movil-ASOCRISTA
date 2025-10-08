@@ -4,8 +4,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors, Theme } from '../constants/Colors';
+import { useAndroidSafeArea } from '../hooks/useAndroidSafeArea';
 
 // Screens
 import SplashScreen from '../screens/SplashScreen';
@@ -26,7 +28,6 @@ import PersonalDataScreen from '../screens/PersonalDataScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import SupportScreen from '../screens/SupportScreen';
 import AboutScreen from '../screens/AboutScreen';
-import BitacoraScreen from '../screens/BitacoraScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -235,64 +236,63 @@ const ProfileStack = () => (
       component={AboutScreen}
       options={{ title: 'Acerca de' }}
     />
-    <Stack.Screen 
-      name="Bitacora" 
-      component={BitacoraScreen}
-      options={{ title: 'Bitácora' }}
-    />
   </Stack.Navigator>
 );
 
 // Tab Navigator Principal
-const MainTabs = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      tabBarIcon: ({ focused, color, size }) => {
-        let iconName;
+const MainTabs = () => {
+  const { bottomPadding, tabBarHeight, isAndroid } = useAndroidSafeArea();
+  
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
 
-        switch (route.name) {
-          case 'Dashboard':
-            iconName = focused ? 'home' : 'home-outline';
-            break;
-          case 'Patients':
-            iconName = focused ? 'people' : 'people-outline';
-            break;
-          case 'Appointments':
-            iconName = focused ? 'calendar' : 'calendar-outline';
-            break;
-          case 'Financial':
-            iconName = focused ? 'cash' : 'cash-outline';
-            break;
-          case 'Reports':
-            iconName = focused ? 'document-text' : 'document-text-outline';
-            break;
-          case 'Profile':
-            iconName = focused ? 'person' : 'person-outline';
-            break;
-          default:
-            iconName = 'circle';
-        }
+          switch (route.name) {
+            case 'Dashboard':
+              iconName = focused ? 'home' : 'home-outline';
+              break;
+            case 'Patients':
+              iconName = focused ? 'people' : 'people-outline';
+              break;
+            case 'Appointments':
+              iconName = focused ? 'calendar' : 'calendar-outline';
+              break;
+            case 'Financial':
+              iconName = focused ? 'cash' : 'cash-outline';
+              break;
+            case 'Reports':
+              iconName = focused ? 'document-text' : 'document-text-outline';
+              break;
+            case 'Profile':
+              iconName = focused ? 'person' : 'person-outline';
+              break;
+            default:
+              iconName = 'circle';
+          }
 
-        return <Ionicons name={iconName} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: Colors.primary,
-      tabBarInactiveTintColor: Colors.gray[500],
-      tabBarStyle: {
-        backgroundColor: Colors.white,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.border,
-        paddingBottom: Theme.spacing.sm,
-        paddingTop: Theme.spacing.sm,
-        height: 60,
-        ...Theme.shadows.sm,
-      },
-      tabBarLabelStyle: {
-        ...Theme.typography.caption1,
-        fontWeight: '500',
-        marginTop: Theme.spacing.xs,
-      },
-    })}
-  >
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.gray[500],
+        tabBarStyle: {
+          backgroundColor: Colors.white,
+          borderTopWidth: 0.5,
+          borderTopColor: Colors.border,
+          paddingBottom: bottomPadding,
+          paddingTop: Theme.spacing.sm,
+          height: tabBarHeight,
+          elevation: isAndroid ? 8 : 0, // Sombra más prominente en Android
+          ...Theme.shadows.sm,
+        },
+        tabBarLabelStyle: {
+          ...Theme.typography.caption1,
+          fontWeight: '500',
+          marginTop: Theme.spacing.xs,
+        },
+      })}
+    >
     <Tab.Screen 
       name="Dashboard" 
       component={DashboardScreen}
@@ -341,8 +341,9 @@ const MainTabs = () => (
         headerShown: false,
       }}
     />
-  </Tab.Navigator>
-);
+    </Tab.Navigator>
+  );
+};
 
 // Navegador Principal
 const AppNavigator = () => {

@@ -189,22 +189,6 @@ const ProfileScreen = ({ navigation }) => {
         />
       </View>
 
-      {/* Bitácora */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Bitácora</Text>
-        <ProfileItem
-          icon="document-text-outline"
-          title="Bitácora"
-          subtitle="Registro de actividades del sistema"
-          onPress={() => {
-            if (navigation && navigation.navigate) {
-              navigation.navigate('Bitacora');
-            } else {
-              Alert.alert('Bitácora', 'Registro de actividades del sistema');
-            }
-          }}
-        />
-      </View>
 
       {/* Cerrar Sesión */}
       <View style={styles.section}>

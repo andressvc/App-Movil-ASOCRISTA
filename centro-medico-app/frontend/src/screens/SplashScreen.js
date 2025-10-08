@@ -62,7 +62,7 @@ const SplashScreen = ({ navigation }) => {
           ]}
         >
           <Image
-            source={require('../../assets/asologo.jpg')}
+            source={require('../../assets/asologo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
