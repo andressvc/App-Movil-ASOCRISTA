@@ -154,25 +154,6 @@ const AddAppointmentScreen = ({ navigation, route }) => {
       return;
     }
 
-    // MOSTRAR ALERTA EN CENTRO DE PANTALLA
-    setShowSuccessAlert(true);
-
-    // Limpiar campos INMEDIATAMENTE si no es edición
-    if (!isEditing) {
-      setFormData({
-        paciente_id: '',
-        tipo: 'visita_familiar',
-        titulo: '',
-        descripcion: '',
-        fecha: getLocalDateString(),
-        hora_inicio: '09:00',
-        hora_fin: '10:00',
-        notas: '',
-      });
-      setSelectedPatient(null);
-      setErrors({});
-    }
-
     setLoading(true);
 
     try {
@@ -192,26 +173,38 @@ const AddAppointmentScreen = ({ navigation, route }) => {
         response = await appointmentService.createAppointment(appointmentData);
       }
 
+      // Verificar si la respuesta fue exitosa
       if (response.success) {
-        Alert.alert(
-          'Éxito',
-          isEditing ? 'Cita actualizada correctamente' : 'Cita creada correctamente',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
+        // MOSTRAR ALERTA DESPUÉS DE GUARDAR EXITOSAMENTE
+        setShowSuccessAlert(true);
+
+        // Limpiar campos DESPUÉS de guardar exitosamente si no es edición
+        if (!isEditing) {
+          setTimeout(() => {
+            setFormData({
+              paciente_id: '',
+              tipo: 'visita_familiar',
+              titulo: '',
+              descripcion: '',
+              fecha: getLocalDateString(),
+              hora_inicio: '09:00',
+              hora_fin: '10:00',
+              notas: '',
+            });
+            setSelectedPatient(null);
+            setErrors({});
+          }, 500);
+        }
       } else {
         Alert.alert('Error', response.message || 'No se pudo guardar la cita');
       }
     } catch (error) {
       console.error('Error saving appointment:', error);
-      Alert.alert('Error', 'No se pudo guardar la cita. Verifica tu conexión.');
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar la cita';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleInputChange = useCallback((field, value) => {

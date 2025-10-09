@@ -3,24 +3,17 @@ import { Platform } from 'react-native';
 
 // Función para obtener la URL base según la plataforma
 const getBaseURL = () => {
-  if (Platform.OS === 'web') {
-    // Para web, usa la URL de producción o localhost en desarrollo
-    return process.env.NODE_ENV === 'production' 
-      ? 'https://asocrista.onrender.com/api'  // URL de Render
-      : 'http://localhost:3000/api';
-  } else {
-    // Para móvil, usa la URL de producción o localhost en desarrollo
-    return process.env.NODE_ENV === 'production'
-      ? 'https://asocrista.onrender.com/api'  // URL de Render
-      : 'http://localhost:3000/api'; // Usar localhost para desarrollo local
-  }
+  // Siempre usar la URL de producción de Render
+  return 'https://asocrista.onrender.com/api';
 };
 
 export const API_CONFIG = {
   BASE_URL: getBaseURL(),
-  TIMEOUT: 15000, // Aumentamos el timeout
+  TIMEOUT: 30000, // 30 segundos para conexiones móviles
   HEADERS: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Cache-Control': 'no-cache',
   },
 };
 

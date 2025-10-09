@@ -71,8 +71,9 @@ const startServer = async () => {
     // Iniciar tareas programadas
     cronService.iniciar();
     
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor corriendo en http://localhost:${PORT}`);
+      console.log(`También accesible desde la red local en http://192.168.1.3:${PORT}`);
       console.log('Rutas disponibles:');
       console.log('AUTENTICACIÓN:');
       console.log('   POST /api/auth/login - Iniciar sesión');

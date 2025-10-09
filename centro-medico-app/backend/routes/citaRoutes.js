@@ -3,6 +3,7 @@ const express = require('express');
 const {
   crearCita,
   obtenerCitas,
+  obtenerCita,
   obtenerCitasDelDia,
   actualizarCita,
   cambiarEstadoCita,
@@ -19,6 +20,7 @@ router.use(authMiddleware);
 router.post('/', crearCita);                           // Crear cita
 router.get('/', obtenerCitas);                         // Listar citas con filtros
 router.get('/dia/:fecha', obtenerCitasDelDia);         // Citas de un día específico
+router.get('/:id', obtenerCita);                       // Obtener cita por ID
 router.put('/:id', actualizarCita);                    // Actualizar cita
 router.patch('/:id/estado', cambiarEstadoCita);        // Cambiar solo el estado
 router.delete('/:id', eliminarCita);                   // Eliminar cita

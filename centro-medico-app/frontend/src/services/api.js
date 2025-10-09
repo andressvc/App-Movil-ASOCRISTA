@@ -10,6 +10,7 @@ const api = axios.create({
   headers: API_CONFIG.HEADERS,
 });
 
+
 // Interceptor para agregar token a las peticiones
 api.interceptors.request.use(
   async (config) => {
@@ -34,6 +35,7 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+
     // Manejar errores de conexión
     if (!error.response) {
       console.error('API: Error de conexión - Backend no disponible');

@@ -252,22 +252,10 @@ const AddFinancialScreen = ({ navigation, route }) => {
       return;
     }
 
-    // MOSTRAR ALERTA EN CENTRO DE PANTALLA
-    setShowSuccessAlert(true);
-
-    // Limpiar campos INMEDIATAMENTE
-    setFormData({
-      tipo: 'ingreso',
-      categoria: '',
-      descripcion: '',
-      monto: '',
-      fecha: getCurrentDateFormatted(),
-      paciente_id: '',
-      metodo_pago: 'efectivo',
-      comprobante: '',
-    });
-    setSelectedPatient(null);
-    setErrors({});
+    if (!formData.paciente_id) {
+      Alert.alert('Error', 'Debes seleccionar un paciente');
+      return;
+    }
 
     setLoading(true);
 
@@ -279,17 +267,45 @@ const AddFinancialScreen = ({ navigation, route }) => {
         paciente_id: formData.paciente_id || null,
       };
 
+      let response;
       if (isEditing) {
-        await financialService.updateMovement(movementId, movementData);
-        navigation.goBack();
+        response = await financialService.updateMovement(movementId, movementData);
       } else {
-        await financialService.createMovement(movementData);
+        response = await financialService.createMovement(movementData);
+      }
+
+      // Verificar si la respuesta fue exitosa
+      if (response.success) {
+        // MOSTRAR ALERTA DESPUÉS DE GUARDAR EXITOSAMENTE
+        setShowSuccessAlert(true);
+
+        // Limpiar campos DESPUÉS de guardar exitosamente si no es edición
+        if (!isEditing) {
+          setTimeout(() => {
+            setFormData({
+              tipo: 'ingreso',
+              categoria: '',
+              descripcion: '',
+              monto: '',
+              fecha: getCurrentDateFormatted(),
+              paciente_id: '',
+              metodo_pago: 'efectivo',
+              comprobante: '',
+            });
+            setSelectedPatient(null);
+            setErrors({});
+          }, 500);
+        }
+      } else {
+        Alert.alert('Error', response.message || 'No se pudo guardar el movimiento');
       }
     } catch (error) {
       console.error('Error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudo guardar el movimiento';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   // Componente simple para campos de texto (igual que en AddPatientScreen)

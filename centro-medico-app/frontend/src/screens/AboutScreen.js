@@ -19,9 +19,9 @@ const AboutScreen = ({ navigation }) => {
   const appInfo = {
     name: 'ASOCRISTA',
     version: '1.0.0',
-    description: 'Sistema de Gestión del Centro Médico ASOCRISTA',
-    build: '2024.01.15',
-    developer: 'Equipo de Desarrollo ASOCRISTA',
+    description: 'Sistema de Gestión del Centro de Rehabilitación ASOCRISTA',
+    build: '25/09/2025',
+    developer: 'Andrés Verón',
   };
 
   const features = [
@@ -30,13 +30,11 @@ const AboutScreen = ({ navigation }) => {
     'Control financiero integrado',
     'Generación de reportes automáticos',
     'Notificaciones push',
-    'Autenticación biométrica',
-    'Modo oscuro',
     'Sincronización en tiempo real'
   ];
 
   const handleOpenWebsite = () => {
-    Linking.openURL('https://asocrista.com');
+    Linking.openURL('https://asocrista.family.blog/');
   };
 
   const handleOpenPrivacy = () => {
@@ -188,7 +186,7 @@ const AboutScreen = ({ navigation }) => {
         <InfoItem
           icon="globe"
           title="Sitio Web"
-          value="asocrista.com"
+          value="asocrista.family.blog"
           onPress={handleOpenWebsite}
           color={theme.success}
         />
@@ -197,13 +195,10 @@ const AboutScreen = ({ navigation }) => {
       {/* Copyright */}
       <View style={[styles.copyright, { backgroundColor: theme.surface }]}>
         <Text style={[styles.copyrightText, { color: theme.text.secondary }]}>
-          © 2024 Centro Médico ASOCRISTA
+          © 2024 Centro de Rehabilitación ASOCRISTA
         </Text>
         <Text style={[styles.copyrightText, { color: theme.text.secondary }]}>
           Todos los derechos reservados
-        </Text>
-        <Text style={[styles.copyrightText, { color: theme.text.secondary }]}>
-          Hecho con amor para la salud
         </Text>
       </View>
     </ScrollView>

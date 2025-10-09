@@ -31,42 +31,46 @@ const AppointmentsScreen = ({ navigation, route }) => {
     fechaFin: '',
   });
 
-  const loadAppointments = async (date = selectedDate, filterParams = {}) => {
+  const loadAppointments = useCallback(async (date = selectedDate, filterParams = filters) => {
     try {
       setLoading(true);
-      const params = {
-        fecha: date,
-        ...filterParams,
-        ...(patientId && { paciente_id: patientId })
-      };
       
+      const params = {
+        page: 1,
+        limit: 50,
+        ...filterParams,
+        ...(patientId && { paciente_id: patientId }),
+        ...(date && { fecha: date })
+      };
+
       const response = await appointmentService.getAppointments(params);
+      
       if (response.success) {
         setAppointments(response.data.citas || []);
       } else {
-        console.error('Error response:', response.message);
         Alert.alert('Error', response.message || 'No se pudieron cargar las citas');
+        setAppointments([]);
       }
     } catch (error) {
       console.error('Error loading appointments:', error);
-      Alert.alert('Error', 'No se pudieron cargar las citas. Verifica tu conexión.');
+      Alert.alert('Error', 'No se pudieron cargar las citas');
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadAppointments(selectedDate, filters);
     setRefreshing(false);
-  }, [selectedDate, filters]);
+  }, [loadAppointments, selectedDate, filters]);
 
-  const handleFilterChange = (newFilters) => {
+  const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
-    loadAppointments(selectedDate, newFilters);
-  };
+  }, []);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     const clearedFilters = {
       estado: 'all',
       paciente: '',
@@ -74,12 +78,21 @@ const AppointmentsScreen = ({ navigation, route }) => {
       fechaFin: '',
     };
     setFilters(clearedFilters);
-    loadAppointments(selectedDate, clearedFilters);
-  };
+  }, []);
 
+  // Recargar citas cuando cambie la fecha o los filtros
   useEffect(() => {
     loadAppointments(selectedDate, filters);
-  }, [selectedDate]);
+  }, [selectedDate, filters, loadAppointments]);
+
+  // Recargar citas cuando la pantalla recupera el foco (después de crear/editar)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadAppointments(selectedDate, filters);
+    });
+
+    return unsubscribe;
+  }, [navigation, loadAppointments, selectedDate, filters]);
 
   const getStatusColor = (estado) => {
     switch (estado) {
@@ -210,24 +223,36 @@ const AppointmentsScreen = ({ navigation, route }) => {
       <View style={styles.dateSelector}>
         <View style={styles.dateInfo}>
           <Text style={styles.dateText}>
-            {new Date(selectedDate).toLocaleDateString('es-ES', {
+            {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
               day: 'numeric'
-            })}
+            }) : 'Todas las Citas'}
           </Text>
           <Text style={styles.appointmentCount}>
             {appointments.length} citas
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(true)}
-        >
-          <Ionicons name="filter-outline" size={20} color={Colors.primary} />
-          <Text style={styles.filterButtonText}>Filtros</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity
+            style={styles.loadAllButton}
+            onPress={() => {
+              setSelectedDate(null);
+              loadAppointments(null, {});
+            }}
+          >
+            <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+            <Text style={styles.loadAllButtonText}>Todas</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilters(true)}
+          >
+            <Ionicons name="filter-outline" size={20} color={Colors.primary} />
+            <Text style={styles.filterButtonText}>Filtros</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Active Filters */}
@@ -444,6 +469,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  loadAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Theme.borderRadius.md,
+  },
+  loadAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: 4,
   },
   dateInfo: {
     flex: 1,

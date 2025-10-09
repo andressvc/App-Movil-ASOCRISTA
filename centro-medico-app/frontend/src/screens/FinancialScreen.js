@@ -27,7 +27,7 @@ const FinancialScreen = ({ navigation }) => {
     { value: 'egreso', label: 'Egresos', color: Colors.error },
   ];
 
-  const loadMovements = async (type = selectedType, date = selectedDate) => {
+  const loadMovements = useCallback(async (type = selectedType, date = selectedDate) => {
     try {
       setLoading(true);
       
@@ -41,25 +41,39 @@ const FinancialScreen = ({ navigation }) => {
       const response = await financialService.getMovements(params);
       
       if (response.success) {
-        setMovements(response.data.movimientos);
+        setMovements(response.data.movimientos || []);
+      } else {
+        Alert.alert('Error', response.message || 'No se pudieron cargar los movimientos');
+        setMovements([]);
       }
     } catch (error) {
       console.error('Error loading movements:', error);
       Alert.alert('Error', 'No se pudieron cargar los movimientos');
+      setMovements([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadMovements();
+    await loadMovements(selectedType, selectedDate);
     setRefreshing(false);
-  }, [selectedType, selectedDate]);
+  }, [loadMovements, selectedType, selectedDate]);
 
+  // Recargar movimientos cuando cambie el tipo o fecha seleccionada
   useEffect(() => {
-    loadMovements();
-  }, [selectedType, selectedDate]);
+    loadMovements(selectedType, selectedDate);
+  }, [selectedType, selectedDate, loadMovements]);
+
+  // Recargar movimientos cuando la pantalla recupera el foco (después de crear/editar)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadMovements(selectedType, selectedDate);
+    });
+
+    return unsubscribe;
+  }, [navigation, loadMovements, selectedType, selectedDate]);
 
   const getTypeColor = (tipo) => {
     return tipo === 'ingreso' ? Colors.success : Colors.error;
@@ -70,10 +84,7 @@ const FinancialScreen = ({ navigation }) => {
   };
 
   const renderMovement = ({ item }) => (
-    <TouchableOpacity
-      style={styles.movementCard}
-      onPress={() => navigation.navigate('FinancialDetail', { id: item.id })}
-    >
+    <View style={styles.movementCard}>
       <View style={styles.movementHeader}>
         <View style={styles.movementType}>
           <Ionicons 
@@ -110,7 +121,7 @@ const FinancialScreen = ({ navigation }) => {
           <Text style={styles.paymentText}>{item.metodo_pago}</Text>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const renderEmptyState = () => (
@@ -173,6 +184,16 @@ const FinancialScreen = ({ navigation }) => {
             />
           ))}
         </View>
+        <TouchableOpacity
+          style={styles.loadAllButton}
+          onPress={() => {
+            setSelectedDate(null);
+            loadMovements('all', null);
+          }}
+        >
+          <Ionicons name="cash-outline" size={16} color={Colors.primary} />
+          <Text style={styles.loadAllButtonText}>Todos los Días</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Summary */}
@@ -180,12 +201,12 @@ const FinancialScreen = ({ navigation }) => {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Resumen del Día</Text>
           <Text style={styles.summaryDate}>
-            {new Date(selectedDate).toLocaleDateString('es-ES', {
+            {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
               day: 'numeric'
-            })}
+            }) : 'Todos los días'}
           </Text>
         </View>
       </View>
@@ -243,6 +264,22 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  loadAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Theme.borderRadius.md,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  loadAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: 4,
   },
   typeFilters: {
     flexDirection: 'row',

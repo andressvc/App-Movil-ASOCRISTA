@@ -176,6 +176,47 @@ const obtenerCitas = async (req, res) => {
   }
 };
 
+// REQ2 - Obtener cita individual por ID
+const obtenerCita = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const cita = await Cita.findByPk(id, {
+      include: [
+        {
+          model: Paciente,
+          as: 'paciente',
+          attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono', 'email']
+        },
+        {
+          model: User,
+          as: 'usuario',
+          attributes: ['id', 'nombre', 'rol']
+        }
+      ]
+    });
+
+    if (!cita) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { cita }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener cita:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
+  }
+};
+
 // REQ2 - Obtener citas del día
 const obtenerCitasDelDia = async (req, res) => {
   try {
@@ -378,6 +419,7 @@ const eliminarCita = async (req, res) => {
 module.exports = {
   crearCita,
   obtenerCitas,
+  obtenerCita,
   obtenerCitasDelDia,
   actualizarCita,
   cambiarEstadoCita,

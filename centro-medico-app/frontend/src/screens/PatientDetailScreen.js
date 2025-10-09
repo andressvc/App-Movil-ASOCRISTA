@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { patientService, appointmentService, financialService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
-import ConnectionTest from '../components/ConnectionTest';
 
 const PatientDetailScreen = ({ route, navigation }) => {
   const { id } = route.params || {};
@@ -194,12 +193,14 @@ const PatientDetailScreen = ({ route, navigation }) => {
 
   if (connectionError) {
     return (
-      <ConnectionTest 
-        onConnectionSuccess={() => {
-          setConnectionError(false);
-          loadPatientData();
-        }}
-      />
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
+        <Text style={styles.errorTitle}>Error de Conexión</Text>
+        <Text style={styles.errorMessage}>No se pudo conectar con el servidor</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadPatientData}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 

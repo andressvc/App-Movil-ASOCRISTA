@@ -37,7 +37,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
       ]);
 
       if (appointmentResponse.success) {
-        setAppointment(appointmentResponse.data);
+        setAppointment(appointmentResponse.data.cita);
       }
       if (paymentsResponse.success) {
         setPayments(paymentsResponse.data.movimientos || []);
@@ -55,7 +55,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
       setUpdating(true);
       const response = await appointmentService.changeAppointmentStatus(id, newStatus, notes);
       if (response.success) {
-        setAppointment(response.data);
+        setAppointment(response.data.cita);
         setShowStatusModal(false);
         Alert.alert('Éxito', 'Estado de la cita actualizado correctamente');
       } else {

@@ -86,14 +86,48 @@ const ReportDetailScreen = ({ navigation, route }) => {
         `📈 Balance Diario: Q ${parseFloat(report.balance_diario || 0).toFixed(2)}\n\n` +
         `Generado desde la App Centro Médico ASOCRISTA`;
 
-      const result = await Share.share({
-        message: mensaje,
-        title: `Reporte Diario - ${fechaFormateada}`,
-      });
-
-      if (result.action === Share.sharedAction) {
-        console.log('Reporte compartido exitosamente');
-      }
+      // Mostrar opciones de compartir
+      Alert.alert(
+        'Compartir Reporte',
+        '¿Cómo deseas compartir el reporte?',
+        [
+          {
+            text: 'Solo Texto',
+            onPress: async () => {
+              try {
+                const result = await Share.share({
+                  message: mensaje,
+                  title: `Reporte Diario - ${fechaFormateada}`,
+                });
+                if (result.action === Share.sharedAction) {
+                  console.log('Reporte compartido exitosamente');
+                }
+              } catch (error) {
+                console.error('Error al compartir texto:', error);
+                Alert.alert('Error', 'No se pudo compartir el reporte');
+              }
+            }
+          },
+          {
+            text: 'Copiar al Portapapeles',
+            onPress: async () => {
+              try {
+                // Importar Clipboard dinámicamente
+                const { Clipboard } = await import('@react-native-clipboard/clipboard');
+                await Clipboard.setString(mensaje);
+                Alert.alert('Éxito', 'Reporte copiado al portapapeles');
+              } catch (error) {
+                console.error('Error al copiar:', error);
+                Alert.alert('Error', 'No se pudo copiar el reporte');
+              }
+            }
+          },
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          }
+        ]
+      );
     } catch (error) {
       console.error('Error al compartir reporte:', error);
       Alert.alert('Error', 'No se pudo compartir el reporte');
