@@ -24,6 +24,10 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configurar trust proxy para Render y otros servicios de hosting
+// Esto permite que Express confíe en los headers de proxy (X-Forwarded-For, etc.)
+app.set('trust proxy', 1);
+
 // Middlewares de seguridad
 app.use(helmet());
 app.use(cors({
