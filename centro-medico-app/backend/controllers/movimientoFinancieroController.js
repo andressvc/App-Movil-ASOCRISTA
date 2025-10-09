@@ -33,7 +33,7 @@ const crearMovimiento = async (req, res) => {
     }
 
     // Validar método de pago si se proporciona
-    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito'];
+    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque'];
     if (metodo_pago && !metodosValidos.includes(metodo_pago)) {
       return res.status(400).json({
         success: false,
@@ -66,7 +66,7 @@ const crearMovimiento = async (req, res) => {
         {
           model: Cita,
           as: 'cita',
-          attributes: ['id', 'fecha', 'hora']
+          attributes: ['id', 'fecha', 'hora_inicio', 'hora_fin']
         }
       ]
     });
@@ -122,7 +122,7 @@ const listarMovimientos = async (req, res) => {
         {
           model: Cita,
           as: 'cita',
-          attributes: ['id', 'fecha', 'hora']
+          attributes: ['id', 'fecha', 'hora_inicio', 'hora_fin']
         }
       ],
       order: [['fecha', 'DESC'], ['createdAt', 'DESC']],
@@ -253,7 +253,7 @@ const obtenerHistorial = async (req, res) => {
         {
           model: Cita,
           as: 'cita',
-          attributes: ['id', 'fecha', 'hora']
+          attributes: ['id', 'fecha', 'hora_inicio', 'hora_fin']
         }
       ],
       order: [['fecha', 'DESC'], ['createdAt', 'DESC']]
@@ -309,7 +309,7 @@ const obtenerMovimiento = async (req, res) => {
         {
           model: Cita,
           as: 'cita',
-          attributes: ['id', 'fecha', 'hora']
+          attributes: ['id', 'fecha', 'hora_inicio', 'hora_fin']
         }
       ]
     });
@@ -354,7 +354,7 @@ const actualizarMovimiento = async (req, res) => {
     }
 
     // Validar método de pago si se proporciona
-    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque', 'deposito'];
+    const metodosValidos = ['efectivo', 'tarjeta', 'transferencia', 'cheque'];
     if (metodo_pago && !metodosValidos.includes(metodo_pago)) {
       return res.status(400).json({
         success: false,

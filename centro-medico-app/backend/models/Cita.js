@@ -25,7 +25,7 @@ const Cita = sequelize.define('Cita', {
     }
   },
   tipo: {
-    type: DataTypes.ENUM('terapia_individual', 'terapia_grupal', 'evento_especial', 'consulta'),
+    type: DataTypes.ENUM('terapia_individual', 'terapia_grupal', 'evento_especial', 'consulta', 'visita_familiar'),
     allowNull: false
   },
   titulo: {

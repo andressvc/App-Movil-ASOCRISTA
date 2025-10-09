@@ -83,9 +83,9 @@ const AddFinancialScreen = ({ navigation, route }) => {
 
   const paymentMethods = [
     { value: 'efectivo', label: 'Efectivo' },
+    { value: 'tarjeta', label: 'Tarjeta' },
     { value: 'transferencia', label: 'Transferencia' },
     { value: 'cheque', label: 'Cheque' },
-    { value: 'deposito', label: 'Depósito' },
   ];
 
   const categories = {
