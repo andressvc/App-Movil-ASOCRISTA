@@ -5,9 +5,7 @@ import {
   TouchableOpacity, 
   Modal, 
   StyleSheet, 
-  Dimensions,
-  PanGestureHandler,
-  State
+  Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../constants/Colors';
