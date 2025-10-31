@@ -35,14 +35,22 @@ const PatientsScreen = ({ navigation }) => {
 
       const response = await patientService.getPatients(params);
       
-      if (response.success) {
+      if (response && response.success && response.data) {
+        const pacientes = response.data.pacientes || [];
         if (pageNum === 1) {
-          setPatients(response.data.pacientes);
+          setPatients(pacientes);
         } else {
-          setPatients(prev => [...prev, ...response.data.pacientes]);
+          setPatients(prev => [...prev, ...pacientes]);
         }
         
-        setHasMore(response.data.pagination.page < response.data.pagination.totalPages);
+        const pagination = response.data.pagination || {};
+        setHasMore(pagination.page < pagination.totalPages);
+      } else {
+        console.error('Respuesta inválida del servidor:', response);
+        if (pageNum === 1) {
+          setPatients([]);
+        }
+        setHasMore(false);
       }
     } catch (error) {
       console.error('Error loading patients:', error);
@@ -77,36 +85,42 @@ const PatientsScreen = ({ navigation }) => {
     loadPatients();
   }, []);
 
-  const renderPatient = ({ item }) => (
-    <TouchableOpacity
-      style={styles.patientCard}
-      onPress={() => navigation.navigate('PatientDetail', { id: item.id })}
-    >
-      <View style={styles.patientHeader}>
-        <View style={styles.patientInfo}>
-          <Text style={styles.patientName}>
-            {item.nombre} {item.apellido}
-          </Text>
-          <Text style={styles.patientCode}>Código: {item.codigo}</Text>
+  const renderPatient = ({ item }) => {
+    if (!item || !item.id) {
+      return null;
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.patientCard}
+        onPress={() => navigation.navigate('PatientDetail', { id: item.id })}
+      >
+        <View style={styles.patientHeader}>
+          <View style={styles.patientInfo}>
+            <Text style={styles.patientName}>
+              {item.nombre || 'Sin nombre'} {item.apellido || 'Sin apellido'}
+            </Text>
+            <Text style={styles.patientCode}>Código: {item.codigo || 'N/A'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.gray[400]} />
         </View>
-        <Ionicons name="chevron-forward" size={20} color={Colors.gray[400]} />
-      </View>
-      
-      {item.telefono && (
-        <View style={styles.patientDetail}>
-          <Ionicons name="call-outline" size={16} color={Colors.gray[500]} />
-          <Text style={styles.patientDetailText}>{item.telefono}</Text>
-        </View>
-      )}
-      
-      {item.edad && (
-        <View style={styles.patientDetail}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.gray[500]} />
-          <Text style={styles.patientDetailText}>{item.edad} años</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+        
+        {item.telefono && (
+          <View style={styles.patientDetail}>
+            <Ionicons name="call-outline" size={16} color={Colors.gray[500]} />
+            <Text style={styles.patientDetailText}>{item.telefono}</Text>
+          </View>
+        )}
+        
+        {item.edad && (
+          <View style={styles.patientDetail}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.gray[500]} />
+            <Text style={styles.patientDetailText}>{item.edad} años</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>

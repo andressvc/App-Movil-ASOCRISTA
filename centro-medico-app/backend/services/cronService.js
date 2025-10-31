@@ -1,6 +1,9 @@
 // services/cronService.js
 const cron = require('node-cron');
-const { Reporte } = require('../models');
+const { Reporte, Cita, Paciente, MovimientoFinanciero } = require('../models');
+const { Op } = require('sequelize');
+const reporteController = require('../controllers/reporteController');
+const notificationService = require('./notificationService');
 
 class CronService {
   constructor() {
@@ -11,12 +14,96 @@ class CronService {
   iniciar() {
     console.log('Iniciando tareas programadas...');
 
-    // Solo limpieza de archivos antiguos (diariamente a las 02:00)
+    // Envío de recordatorios de citas (diariamente a las 18:00)
+    this.programarRecordatorios();
+    
+    // Generación automática de reportes diarios (diariamente a las 23:00)
+    this.programarGeneracionReportes();
+    
+    // Limpieza de archivos antiguos (diariamente a las 02:00)
     this.programarLimpiezaArchivos();
 
     console.log('Tareas programadas iniciadas correctamente');
   }
 
+
+  // Programar envío de recordatorios de citas
+  programarRecordatorios() {
+    const tarea = cron.schedule('0 18 * * *', async () => {
+      try {
+        console.log('🔔 Iniciando envío de recordatorios de citas...');
+        
+        const resultado = await notificationService.enviarRecordatoriosCitas();
+        
+        if (resultado.success) {
+          console.log(`✅ Recordatorios enviados: ${resultado.enviados}/${resultado.total}`);
+        } else {
+          console.error(`❌ Error en envío de recordatorios: ${resultado.message}`);
+        }
+        
+      } catch (error) {
+        console.error('Error en envío de recordatorios:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Mexico_City"
+    });
+
+    this.tareas.set('recordatorios', tarea);
+    console.log('Envío de recordatorios programado para las 18:00');
+  }
+
+  // Programar generación automática de reportes diarios
+  programarGeneracionReportes() {
+    const tarea = cron.schedule('0 23 * * *', async () => {
+      try {
+        console.log('📊 Iniciando generación automática de reporte diario...');
+        
+        // Obtener fecha de ayer
+        const ayer = new Date();
+        ayer.setDate(ayer.getDate() - 1);
+        const fechaAyer = ayer.toISOString().split('T')[0];
+        
+        // Verificar si ya existe un reporte para esa fecha
+        const reporteExistente = await Reporte.findOne({
+          where: { fecha: fechaAyer }
+        });
+        
+        if (reporteExistente) {
+          console.log(`Reporte para ${fechaAyer} ya existe, saltando generación`);
+          return;
+        }
+        
+        // Generar reporte para la fecha anterior
+        const req = {
+          body: { fecha: fechaAyer }
+        };
+        
+        const res = {
+          status: (code) => ({
+            json: (data) => {
+              if (code === 201) {
+                console.log(`✅ Reporte diario generado exitosamente para ${fechaAyer}`);
+              } else {
+                console.error(`❌ Error al generar reporte: ${data.message}`);
+              }
+            }
+          })
+        };
+        
+        await reporteController.generarReporte(req, res);
+        
+      } catch (error) {
+        console.error('Error en generación automática de reportes:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Mexico_City"
+    });
+
+    this.tareas.set('generacionReportes', tarea);
+    console.log('Generación automática de reportes programada para las 23:00');
+  }
 
   // Programar limpieza de archivos antiguos
   programarLimpiezaArchivos() {

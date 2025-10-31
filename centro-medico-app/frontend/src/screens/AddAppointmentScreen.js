@@ -103,13 +103,17 @@ const AddAppointmentScreen = ({ navigation, route }) => {
 
   const handlePatientSearch = (query) => {
     setPatientSearch(query);
-    if (query.trim().length === 0) {
+    if (!query || query.trim().length === 0) {
       setFilteredPatients(patients);
     } else {
-      const filtered = patients.filter(patient =>
-        `${patient.nombre} ${patient.apellido}`.toLowerCase().includes(query.toLowerCase()) ||
-        patient.codigo.toLowerCase().includes(query.toLowerCase())
-      );
+      const filtered = patients.filter(patient => {
+        if (!patient || !patient.nombre || !patient.apellido || !patient.codigo) {
+          return false;
+        }
+        const fullName = `${patient.nombre} ${patient.apellido}`.toLowerCase();
+        const searchTerm = query.toLowerCase();
+        return fullName.includes(searchTerm) || patient.codigo.toLowerCase().includes(searchTerm);
+      });
       setFilteredPatients(filtered);
     }
   };

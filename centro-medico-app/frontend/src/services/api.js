@@ -1,6 +1,7 @@
 // services/api.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { API_CONFIG, STORAGE_KEYS } from '../constants/Config';
 
 // Crear instancia de axios
@@ -245,4 +246,91 @@ export const dashboardService = {
   },
 };
 
+// Servicio de sincronización offline
+class OfflineSyncService {
+  constructor() {
+    this.pendingRequests = [];
+    this.isOnline = true;
+    this.setupNetworkListener();
+  }
+
+  setupNetworkListener() {
+    NetInfo.addEventListener(state => {
+      this.isOnline = state.isConnected;
+      if (state.isConnected && this.pendingRequests.length > 0) {
+        this.syncPendingRequests();
+      }
+    });
+  }
+
+  async syncPendingRequests() {
+    console.log(`🔄 Sincronizando ${this.pendingRequests.length} peticiones pendientes...`);
+    
+    const requests = [...this.pendingRequests];
+    this.pendingRequests = [];
+
+    for (const request of requests) {
+      try {
+        await this.executeRequest(request);
+        console.log(`✅ Petición sincronizada: ${request.method} ${request.url}`);
+      } catch (error) {
+        console.error(`❌ Error sincronizando petición:`, error);
+        // Re-agregar a la cola si falla
+        this.pendingRequests.push(request);
+      }
+    }
+  }
+
+  async executeRequest(request) {
+    const { method, url, data, config } = request;
+    
+    switch (method.toLowerCase()) {
+      case 'get':
+        return await api.get(url, config);
+      case 'post':
+        return await api.post(url, data, config);
+      case 'put':
+        return await api.put(url, data, config);
+      case 'patch':
+        return await api.patch(url, data, config);
+      case 'delete':
+        return await api.delete(url, config);
+      default:
+        throw new Error(`Método HTTP no soportado: ${method}`);
+    }
+  }
+
+  async queueRequest(method, url, data = null, config = {}) {
+    const request = { method, url, data, config, timestamp: Date.now() };
+    
+    if (this.isOnline) {
+      try {
+        return await this.executeRequest(request);
+      } catch (error) {
+        // Si falla y es error de red, agregar a la cola
+        if (!error.response) {
+          this.pendingRequests.push(request);
+          throw new Error('Petición agregada a la cola de sincronización');
+        }
+        throw error;
+      }
+    } else {
+      // Si está offline, agregar directamente a la cola
+      this.pendingRequests.push(request);
+      throw new Error('Sin conexión. Petición guardada para sincronización posterior.');
+    }
+  }
+
+  getPendingRequestsCount() {
+    return this.pendingRequests.length;
+  }
+
+  clearPendingRequests() {
+    this.pendingRequests = [];
+  }
+}
+
+const offlineSync = new OfflineSyncService();
+
+export { offlineSync };
 export default api;

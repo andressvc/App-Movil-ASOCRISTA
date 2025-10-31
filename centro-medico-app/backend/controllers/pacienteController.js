@@ -72,13 +72,14 @@ const obtenerPacientes = async (req, res) => {
     // Construir condiciones de búsqueda
     let whereCondition = { activo: true };
     
-    if (buscar) {
+    if (buscar && buscar.trim()) {
+      const searchTerm = buscar.trim();
       whereCondition = {
         ...whereCondition,
         [Op.or]: [
-          { nombre: { [Op.like]: `%${buscar}%` } },
-          { apellido: { [Op.like]: `%${buscar}%` } },
-          { codigo: { [Op.like]: `%${buscar}%` } }
+          { nombre: { [Op.like]: `%${searchTerm}%` } },
+          { apellido: { [Op.like]: `%${searchTerm}%` } },
+          { codigo: { [Op.like]: `%${searchTerm}%` } }
         ]
       };
     }
@@ -221,20 +222,21 @@ const buscarPacientes = async (req, res) => {
   try {
     const { q } = req.query;
 
-    if (!q || q.trim().length < 2) {
+    if (!q || !q.trim() || q.trim().length < 2) {
       return res.status(400).json({
         success: false,
         message: 'El término de búsqueda debe tener al menos 2 caracteres'
       });
     }
 
+    const searchTerm = q.trim();
     const pacientes = await Paciente.findAll({
       where: {
         activo: true,
         [Op.or]: [
-          { nombre: { [Op.like]: `%${q}%` } },
-          { apellido: { [Op.like]: `%${q}%` } },
-          { codigo: { [Op.like]: `%${q}%` } }
+          { nombre: { [Op.like]: `%${searchTerm}%` } },
+          { apellido: { [Op.like]: `%${searchTerm}%` } },
+          { codigo: { [Op.like]: `%${searchTerm}%` } }
         ]
       },
       limit: 10,
