@@ -156,14 +156,34 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
 
 // Función para generar PDF del reporte como Buffer
 const generarPDFReporte = async (reporte, datos) => {
+  let browser = null;
   try {
-    const browser = await puppeteer.launch({ headless: true });
+    // Configuración de Puppeteer para Render y otros entornos de servidor
+    const puppeteerOptions = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
+      timeout: 60000 // 60 segundos de timeout
+    };
+
+    browser = await puppeteer.launch(puppeteerOptions);
     const page = await browser.newPage();
 
     // Generar HTML del reporte
     const html = await generarHTMLReporte(reporte, datos);
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { 
+      waitUntil: 'networkidle0',
+      timeout: 30000 
+    });
 
     const pdfBuffer = await page.pdf({
       format: 'A4',
@@ -173,15 +193,25 @@ const generarPDFReporte = async (reporte, datos) => {
         right: '20mm',
         bottom: '20mm',
         left: '20mm'
-      }
+      },
+      timeout: 30000
     });
 
     await browser.close();
+    browser = null;
 
     return pdfBuffer;
 
   } catch (error) {
     console.error('Error al generar PDF:', error);
+    console.error('Error stack:', error.stack);
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error('Error al cerrar el navegador:', closeError);
+      }
+    }
     throw error;
   }
 };
@@ -384,14 +414,15 @@ const generarHTMLReporte = async (reporte, datos) => {
                         </tr>
                     </thead>
                     <tbody>
-                        ${datos.citas.map(cita => `
+                        ${(datos.citas || []).map(cita => `
                             <tr>
-                                <td>${cita.hora_inicio} - ${cita.hora_fin}</td>
-                                <td>${cita.paciente.nombre} ${cita.paciente.apellido}</td>
-                                <td>${cita.tipo.replace('_', ' ').toUpperCase()}</td>
-                                <td class="status-${cita.estado}">${cita.estado.replace('_', ' ').toUpperCase()}</td>
+                                <td>${cita.hora_inicio || ''} - ${cita.hora_fin || ''}</td>
+                                <td>${cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente'}</td>
+                                <td>${(cita.tipo || '').replace('_', ' ').toUpperCase()}</td>
+                                <td class="status-${cita.estado || 'programada'}">${(cita.estado || 'programada').replace('_', ' ').toUpperCase()}</td>
                             </tr>
                         `).join('')}
+                        ${(!datos.citas || datos.citas.length === 0) ? '<tr><td colspan="4" style="text-align: center; padding: 20px;">No hay citas registradas para este día</td></tr>' : ''}
                     </tbody>
                 </table>
             </div>
@@ -408,14 +439,15 @@ const generarHTMLReporte = async (reporte, datos) => {
                         </tr>
                     </thead>
                     <tbody>
-                        ${datos.movimientos.map(mov => `
+                        ${(datos.movimientos || []).map(mov => `
                             <tr>
-                                <td>${mov.tipo.toUpperCase()}</td>
-                                <td>${mov.descripcion}</td>
-                                <td>Q ${parseFloat(mov.monto).toFixed(2)}</td>
+                                <td>${(mov.tipo || '').toUpperCase()}</td>
+                                <td>${mov.descripcion || 'Sin descripción'}</td>
+                                <td>Q ${parseFloat(mov.monto || 0).toFixed(2)}</td>
                                 <td>${mov.metodo_pago || 'N/A'}</td>
                             </tr>
                         `).join('')}
+                        ${(!datos.movimientos || datos.movimientos.length === 0) ? '<tr><td colspan="4" style="text-align: center; padding: 20px;">No hay movimientos financieros registrados para este día</td></tr>' : ''}
                     </tbody>
                 </table>
             </div>
@@ -532,7 +564,7 @@ const descargarPDFReporte = async (req, res) => {
       return res.redirect(reporte.ruta_archivo);
     }
 
-    // Si es ruta local, servir el archivo
+    // Si es ruta local, intentar servir el archivo
     if (reporte.ruta_archivo && !reporte.ruta_archivo.startsWith('http')) {
       try {
         await fs.access(reporte.ruta_archivo);
@@ -541,23 +573,37 @@ const descargarPDFReporte = async (req, res) => {
         return res.sendFile(path.resolve(reporte.ruta_archivo));
       } catch (error) {
         // Si no existe el archivo, generar uno nuevo
-        console.log('Archivo PDF no encontrado, generando uno nuevo...');
+        console.log('Archivo PDF local no encontrado, generando uno nuevo...');
       }
     }
 
-    // Si no existe PDF, generar uno nuevo
+    // Generar PDF nuevo (ya sea porque no existe archivo o porque está en Cloudinary)
+    console.log(`Generando PDF para reporte ID: ${id}, fecha: ${reporte.fecha}`);
     const datosDia = await obtenerDatosDelDia(reporte.fecha, usuario_id);
-    const pdfBuffer = await generarPDFReporte(reporte, datosDia);
+    
+    let pdfBuffer;
+    try {
+      pdfBuffer = await generarPDFReporte(reporte, datosDia);
+    } catch (pdfError) {
+      console.error('Error específico al generar PDF:', pdfError);
+      throw new Error(`No se pudo generar el PDF: ${pdfError.message}`);
+    }
 
+    // Configurar headers para descarga
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="reporte_${reporte.fecha}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
     res.send(pdfBuffer);
 
   } catch (error) {
     console.error('Error al descargar PDF:', error);
+    console.error('Error detalles:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Error al generar PDF del reporte'
+      message: 'Error al generar PDF del reporte',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

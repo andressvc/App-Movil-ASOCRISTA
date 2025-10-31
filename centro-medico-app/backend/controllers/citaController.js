@@ -186,12 +186,14 @@ const obtenerCita = async (req, res) => {
         {
           model: Paciente,
           as: 'paciente',
-          attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono', 'email']
+          attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono'],
+          required: false // Permite devolver la cita aunque el paciente no exista o esté inactivo
         },
         {
           model: User,
           as: 'usuario',
-          attributes: ['id', 'nombre', 'rol']
+          attributes: ['id', 'nombre', 'rol'],
+          required: false // Permite devolver la cita aunque el usuario no exista
         }
       ]
     });
@@ -210,9 +212,12 @@ const obtenerCita = async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener cita:', error);
+    console.error('Error detalles:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
