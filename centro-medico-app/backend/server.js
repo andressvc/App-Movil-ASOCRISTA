@@ -31,7 +31,12 @@ app.set('trust proxy', 1);
 // Middlewares de seguridad
 app.use(helmet());
 app.use(cors({
-  origin: true, // Permite cualquier origen en desarrollo
+  origin: [
+    'https://app-movil-asocrista.onrender.com', // Frontend web en Render
+    /^https:\/\/.*\.onrender\.com$/, // Permite cualquier subdominio de Render (para Android/testing)
+    'http://localhost:19006', // Expo web local
+    'http://localhost:3000', // Desarrollo local
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
