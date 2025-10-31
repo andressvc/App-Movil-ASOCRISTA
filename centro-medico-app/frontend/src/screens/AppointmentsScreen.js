@@ -16,13 +16,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { appointmentService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import { getLocalDateString } from '../utils/validations';
 
 const AppointmentsScreen = ({ navigation, route }) => {
   const { patientId } = route?.params || {};
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     estado: 'all',

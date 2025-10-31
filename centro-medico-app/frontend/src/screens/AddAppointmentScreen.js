@@ -19,20 +19,13 @@ import TimeSelector from '../components/TimeSelector';
 import { Ionicons } from '@expo/vector-icons';
 import { appointmentService, patientService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
-import { ValidationRules, validateForm, cleanText, formatName } from '../utils/validations';
+import { ValidationRules, validateForm, cleanText, formatName, getLocalDateString, dateToLocalString } from '../utils/validations';
 
 const AddAppointmentScreen = ({ navigation, route }) => {
   const { appointmentId } = route.params || {};
   const isEditing = !!appointmentId;
 
 
-  const getLocalDateString = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const [formData, setFormData] = useState({
     paciente_id: '',
@@ -88,7 +81,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
           tipo: appointment.tipo,
           titulo: appointment.titulo,
           descripcion: appointment.descripcion || '',
-          fecha: appointment.fecha ? String(appointment.fecha).split('T')[0] : getLocalDateString(),
+          fecha: appointment.fecha ? dateToLocalString(appointment.fecha) : getLocalDateString(),
           hora_inicio: appointment.hora_inicio,
           hora_fin: appointment.hora_fin,
           notas: appointment.notas || '',
@@ -167,7 +160,7 @@ const AddAppointmentScreen = ({ navigation, route }) => {
         descripcion: cleanText(formData.descripcion),
         notas: cleanText(formData.notas),
         // Enviar solo fecha (YYYY-MM-DD), sin hora
-        fecha: formData.fecha ? String(formData.fecha).split('T')[0] : null,
+        fecha: formData.fecha ? dateToLocalString(formData.fecha) : null,
       };
 
       let response;
@@ -389,9 +382,10 @@ const AddAppointmentScreen = ({ navigation, route }) => {
           <View style={styles.dateTimeContainer}>
             <CustomDateTimePicker
               label="Fecha"
-              value={formData.fecha ? new Date(formData.fecha) : null}
+              value={formData.fecha ? new Date(formData.fecha + 'T12:00:00') : null}
               onChange={(date) => {
-                const dateStr = date.toISOString().split('T')[0];
+                // date ya viene como Date en zona local, convertir directamente
+                const dateStr = dateToLocalString(date);
                 setFormData(prev => ({
                   ...prev,
                   fecha: dateStr

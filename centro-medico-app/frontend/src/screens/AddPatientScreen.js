@@ -16,7 +16,7 @@ import SimpleDatePicker from '../components/SimpleDatePicker';
 import { Ionicons } from '@expo/vector-icons';
 import { patientService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
-import { ValidationRules, validateForm, cleanText, formatName } from '../utils/validations';
+import { ValidationRules, validateForm, cleanText, formatName, dateToLocalString } from '../utils/validations';
 
 const AddPatientScreen = ({ navigation, route }) => {
   const { patientId } = route.params || {};
@@ -124,7 +124,7 @@ const AddPatientScreen = ({ navigation, route }) => {
         edad: formData.edad ? parseInt(formData.edad) : null,
         direccion: cleanText(formData.direccion),
         historial_medico: cleanText(formData.historial_medico),
-        fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento.toISOString().split('T')[0] : null,
+        fecha_nacimiento: formData.fecha_nacimiento ? dateToLocalString(formData.fecha_nacimiento) : null,
       };
 
       if (isEditing) {

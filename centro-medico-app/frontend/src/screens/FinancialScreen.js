@@ -13,13 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { financialService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import { getLocalDateString } from '../utils/validations';
 
 const FinancialScreen = ({ navigation }) => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
 
   const movementTypes = [
     { value: 'all', label: 'Todos', color: Colors.gray[500] },

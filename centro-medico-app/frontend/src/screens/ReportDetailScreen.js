@@ -9,10 +9,14 @@ import {
   Alert,
   ActivityIndicator,
   Share,
+  Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
+import { API_CONFIG, STORAGE_KEYS } from '../constants/Config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ReportDetailScreen = ({ navigation, route }) => {
   const { id } = route.params;
@@ -74,6 +78,13 @@ const ReportDetailScreen = ({ navigation, route }) => {
         return;
       }
 
+      // Si es web, descargar PDF
+      if (Platform.OS === 'web') {
+        handleDownloadPDF();
+        return;
+      }
+
+      // Si es móvil, compartir como antes
       const fechaFormateada = formatDate(report.fecha);
       const mensaje = `📊 Reporte Diario - Centro Médico ASOCRISTA\n\n` +
         `📅 Fecha: ${fechaFormateada}\n` +
@@ -134,6 +145,68 @@ const ReportDetailScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      if (!report || !report.id) {
+        Alert.alert('Error', 'No se puede descargar el reporte');
+        return;
+      }
+
+      // Verificar que estamos en web
+      if (Platform.OS !== 'web') {
+        return;
+      }
+
+      // Obtener token de autenticación
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      
+      if (!token) {
+        Alert.alert('Error', 'No estás autenticado');
+        return;
+      }
+
+      // URL del PDF
+      const pdfUrl = `${API_CONFIG.BASE_URL}/reportes/${report.id}/pdf`;
+      
+      // Descargar PDF con autenticación
+      try {
+        const response = await fetch(pdfUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/pdf'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al descargar PDF');
+        }
+
+        const blob = await response.blob();
+        
+        // Crear URL temporal y descargar
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `reporte_asocrista_${report.fecha || 'diario'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        Alert.alert('Éxito', 'PDF descargado correctamente');
+      } catch (fetchError) {
+        console.error('Error descargando PDF:', fetchError);
+        // Fallback: intentar abrir directamente (puede que el backend redirija)
+        window.open(pdfUrl, '_blank');
+      }
+
+    } catch (error) {
+      console.error('Error al descargar PDF:', error);
+      Alert.alert('Error', 'No se pudo descargar el PDF. Por favor intenta de nuevo.');
+    }
+  };
+
   const StatCard = ({ title, value, icon, color, subtitle }) => (
     <View style={styles.statCard}>
       <View style={styles.statHeader}>
@@ -185,7 +258,11 @@ const ReportDetailScreen = ({ navigation, route }) => {
           style={styles.shareButton}
           onPress={handleShare}
         >
-          <Ionicons name="share-outline" size={24} color={Colors.primary} />
+          <Ionicons 
+            name={Platform.OS === 'web' ? "download-outline" : "share-outline"} 
+            size={24} 
+            color={Colors.primary} 
+          />
         </TouchableOpacity>
       </View>
 

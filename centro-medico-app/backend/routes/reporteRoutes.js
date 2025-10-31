@@ -3,7 +3,8 @@ const express = require('express');
 const {
   generarReporteDiario,
   obtenerReportes,
-  obtenerReporte
+  obtenerReporte,
+  descargarPDFReporte
 } = require('../controllers/reporteController');
 const authMiddleware = require('../middleware/auth');
 
@@ -15,6 +16,8 @@ router.use(authMiddleware);
 // REQ5 - Rutas para reportes
 router.post('/generar/:fecha', generarReporteDiario);  // Generar reporte diario
 router.get('/', obtenerReportes);                      // Listar reportes con filtros
+// IMPORTANTE: La ruta /:id/pdf debe ir ANTES de /:id para evitar conflictos
+router.get('/:id/pdf', descargarPDFReporte);          // Descargar PDF del reporte
 router.get('/:id', obtenerReporte);                    // Obtener reporte por ID
 
 module.exports = router;

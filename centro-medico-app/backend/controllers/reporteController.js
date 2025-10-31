@@ -5,6 +5,7 @@ const puppeteer = require('puppeteer');
 const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
 const path = require('path');
 const fs = require('fs').promises;
+const path = require('path');
 
 // REQ5 - Generar reporte diario
 const generarReporteDiario = async (req, res) => {
@@ -161,7 +162,7 @@ const generarPDFReporte = async (reporte, datos) => {
     const page = await browser.newPage();
 
     // Generar HTML del reporte
-    const html = generarHTMLReporte(reporte, datos);
+    const html = await generarHTMLReporte(reporte, datos);
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -186,13 +187,23 @@ const generarPDFReporte = async (reporte, datos) => {
   }
 };
 
-// Función para generar HTML del reporte
-const generarHTMLReporte = (reporte, datos) => {
+// Función para generar HTML del reporte con logo
+const generarHTMLReporte = async (reporte, datos) => {
   const fechaFormateada = new Date(reporte.fecha).toLocaleDateString('es-ES', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
+
+  // Intentar leer el logo y convertirlo a base64
+  let logoBase64 = '';
+  try {
+    const logoPath = path.join(__dirname, '../../frontend/assets/asologo.png');
+    const logoBuffer = await fs.readFile(logoPath);
+    logoBase64 = logoBuffer.toString('base64');
+  } catch (error) {
+    console.log('Logo no encontrado, usando texto en su lugar');
+  }
 
   return `
     <!DOCTYPE html>
@@ -202,8 +213,13 @@ const generarHTMLReporte = (reporte, datos) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Reporte Diario - ${fechaFormateada}</title>
         <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
             body {
-                font-family: Arial, sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 margin: 0;
                 padding: 20px;
                 background-color: #f5f5f5;
@@ -212,24 +228,33 @@ const generarHTMLReporte = (reporte, datos) => {
                 max-width: 800px;
                 margin: 0 auto;
                 background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }
             .header {
                 text-align: center;
-                border-bottom: 3px solid #007bff;
-                padding-bottom: 20px;
-                margin-bottom: 30px;
+                border-bottom: 4px solid #2E7D32;
+                padding-bottom: 25px;
+                margin-bottom: 35px;
+            }
+            .logo-container {
+                margin-bottom: 15px;
+            }
+            .logo {
+                max-width: 150px;
+                height: auto;
+                margin-bottom: 10px;
             }
             .header h1 {
-                color: #007bff;
-                margin: 0;
-                font-size: 28px;
+                color: #2E7D32;
+                margin: 10px 0;
+                font-size: 32px;
+                font-weight: bold;
             }
             .header h2 {
-                color: #666;
-                margin: 10px 0 0 0;
+                color: #555;
+                margin: 5px 0 0 0;
                 font-size: 18px;
                 font-weight: normal;
             }
@@ -240,44 +265,55 @@ const generarHTMLReporte = (reporte, datos) => {
                 margin-bottom: 30px;
             }
             .stat-card {
-                background: #f8f9fa;
-                padding: 20px;
-                border-radius: 8px;
-                border-left: 4px solid #007bff;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 22px;
+                border-radius: 10px;
+                border-left: 5px solid #2E7D32;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                transition: transform 0.2s;
             }
             .stat-card h3 {
-                margin: 0 0 10px 0;
+                margin: 0 0 12px 0;
                 color: #333;
-                font-size: 16px;
+                font-size: 15px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
             .stat-value {
-                font-size: 24px;
+                font-size: 28px;
                 font-weight: bold;
-                color: #007bff;
+                color: #2E7D32;
             }
             .section {
-                margin-bottom: 30px;
+                margin-bottom: 35px;
             }
             .section h3 {
-                color: #333;
-                border-bottom: 2px solid #007bff;
-                padding-bottom: 10px;
-                margin-bottom: 20px;
+                color: #2E7D32;
+                border-bottom: 3px solid #2E7D32;
+                padding-bottom: 12px;
+                margin-bottom: 22px;
+                font-size: 20px;
+                font-weight: bold;
             }
             .table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 20px;
+                margin-bottom: 25px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
             .table th, .table td {
-                padding: 12px;
+                padding: 14px;
                 text-align: left;
                 border-bottom: 1px solid #ddd;
             }
             .table th {
-                background-color: #007bff;
+                background-color: #2E7D32;
                 color: white;
                 font-weight: bold;
+                text-transform: uppercase;
+                font-size: 13px;
+                letter-spacing: 0.5px;
             }
             .table tr:nth-child(even) {
                 background-color: #f8f9fa;
@@ -298,8 +334,10 @@ const generarHTMLReporte = (reporte, datos) => {
     <body>
         <div class="container">
             <div class="header">
-                <h1>Reporte Diario</h1>
-                <h2>Centro Médico ASOCRISTA - ${fechaFormateada}</h2>
+                ${logoBase64 ? `<div class="logo-container"><img src="data:image/png;base64,${logoBase64}" class="logo" alt="ASOCRISTA Logo" /></div>` : ''}
+                <h1>REPORTE DIARIO</h1>
+                <h2>Centro Médico ASOCRISTA</h2>
+                <h2 style="margin-top: 8px; font-size: 16px;">${fechaFormateada}</h2>
             </div>
 
             <div class="stats-grid">
@@ -321,16 +359,16 @@ const generarHTMLReporte = (reporte, datos) => {
                 </div>
                 <div class="stat-card">
                     <h3>Total Ingresos</h3>
-                    <div class="stat-value">$${reporte.total_ingresos.toFixed(2)}</div>
+                    <div class="stat-value">Q ${parseFloat(reporte.total_ingresos).toFixed(2)}</div>
                 </div>
                 <div class="stat-card">
                     <h3>Total Egresos</h3>
-                    <div class="stat-value">$${reporte.total_egresos.toFixed(2)}</div>
+                    <div class="stat-value">Q ${parseFloat(reporte.total_egresos).toFixed(2)}</div>
                 </div>
                 <div class="stat-card">
                     <h3>Balance Diario</h3>
-                    <div class="stat-value" style="color: ${reporte.balance_diario >= 0 ? '#28a745' : '#dc3545'}">
-                        $${reporte.balance_diario.toFixed(2)}
+                    <div class="stat-value" style="color: ${reporte.balance_diario >= 0 ? '#2E7D32' : '#dc3545'}">
+                        Q ${parseFloat(reporte.balance_diario).toFixed(2)}
                     </div>
                 </div>
             </div>
@@ -375,7 +413,7 @@ const generarHTMLReporte = (reporte, datos) => {
                             <tr>
                                 <td>${mov.tipo.toUpperCase()}</td>
                                 <td>${mov.descripcion}</td>
-                                <td>$${parseFloat(mov.monto).toFixed(2)}</td>
+                                <td>Q ${parseFloat(mov.monto).toFixed(2)}</td>
                                 <td>${mov.metodo_pago || 'N/A'}</td>
                             </tr>
                         `).join('')}
@@ -473,8 +511,61 @@ const obtenerReporte = async (req, res) => {
   }
 };
 
+// Descargar PDF del reporte
+const descargarPDFReporte = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario_id = req.usuario.id;
+
+    const reporte = await Reporte.findOne({
+      where: { id, usuario_id }
+    });
+
+    if (!reporte) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reporte no encontrado'
+      });
+    }
+
+    // Si tiene ruta_archivo (Cloudinary URL), redirigir a ella
+    if (reporte.ruta_archivo && reporte.ruta_archivo.startsWith('http')) {
+      return res.redirect(reporte.ruta_archivo);
+    }
+
+    // Si es ruta local, servir el archivo
+    if (reporte.ruta_archivo && !reporte.ruta_archivo.startsWith('http')) {
+      try {
+        await fs.access(reporte.ruta_archivo);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="reporte_${reporte.fecha}.pdf"`);
+        return res.sendFile(path.resolve(reporte.ruta_archivo));
+      } catch (error) {
+        // Si no existe el archivo, generar uno nuevo
+        console.log('Archivo PDF no encontrado, generando uno nuevo...');
+      }
+    }
+
+    // Si no existe PDF, generar uno nuevo
+    const datosDia = await obtenerDatosDelDia(reporte.fecha, usuario_id);
+    const pdfBuffer = await generarPDFReporte(reporte, datosDia);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="reporte_${reporte.fecha}.pdf"`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error al descargar PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar PDF del reporte'
+    });
+  }
+};
+
 module.exports = {
   generarReporteDiario,
   obtenerReportes,
-  obtenerReporte
+  obtenerReporte,
+  descargarPDFReporte
 };

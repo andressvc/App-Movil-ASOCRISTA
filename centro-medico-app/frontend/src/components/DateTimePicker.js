@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -22,10 +22,40 @@ const CustomDateTimePicker = ({
   style,
   showTime = true
 }) => {
+  // Inicializar con fecha actual en zona horaria local
+  const getInitialDate = () => {
+    const now = new Date();
+    now.setHours(12, 0, 0, 0); // Usar mediodía para evitar problemas de timezone
+    return now;
+  };
+  
+  // Inicializar selectedDate con el valor pasado o fecha actual
+  const initializeDate = () => {
+    if (value) {
+      const d = new Date(value);
+      // Asegurar que está en zona local (usar mediodía para evitar problemas)
+      d.setHours(12, 0, 0, 0);
+      return d;
+    }
+    return getInitialDate();
+  };
+  
   const [show, setShow] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(value || new Date());
-  const [selectedTime, setSelectedTime] = useState(value || new Date());
-  const [isAM, setIsAM] = useState((value || new Date()).getHours() < 12);
+  const [selectedDate, setSelectedDate] = useState(initializeDate());
+  const [selectedTime, setSelectedTime] = useState(value || getInitialDate());
+  const [isAM, setIsAM] = useState((value || getInitialDate()).getHours() < 12);
+  
+  // Actualizar selectedDate cuando cambie el value prop
+  useEffect(() => {
+    if (value) {
+      const d = new Date(value);
+      d.setHours(12, 0, 0, 0);
+      setSelectedDate(d);
+    } else if (!showTime) {
+      // Si no hay value y es solo fecha, usar fecha actual
+      setSelectedDate(getInitialDate());
+    }
+  }, [value, showTime]);
   
   const styles = getStyles();
 
@@ -93,7 +123,9 @@ const CustomDateTimePicker = ({
   const handleDateSelect = (day, isCurrentMonth) => {
     if (!isCurrentMonth) return;
     
+    // Crear fecha en zona horaria local (medianoche local)
     const newDate = new Date(currentYear, currentMonth, day);
+    newDate.setHours(12, 0, 0, 0); // Usar mediodía para evitar problemas de timezone
     setSelectedDate(newDate);
   };
 
@@ -109,9 +141,9 @@ const CustomDateTimePicker = ({
       finalDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
       onChange(finalDate);
     } else {
-      // Solo fecha: normalizar a medianoche y enviar solo la fecha
+      // Solo fecha: usar mediodía local para evitar problemas de timezone al convertir
       const onlyDate = new Date(selectedDate);
-      onlyDate.setHours(0, 0, 0, 0);
+      onlyDate.setHours(12, 0, 0, 0);
       onChange(onlyDate);
     }
     setShow(false);
@@ -217,15 +249,25 @@ const CustomDateTimePicker = ({
     );
   };
 
+  // Asegurar que value siempre tenga una fecha válida para mostrar
+  const displayValue = value || (showTime ? null : getInitialDate());
+  
   return (
     <View style={[styles.container, style]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TouchableOpacity 
         style={[styles.input, error && styles.inputError]}
-        onPress={() => setShow(true)}
+        onPress={() => {
+          // Si no hay value, inicializar con fecha actual al abrir
+          if (!value && !showTime) {
+            const today = getInitialDate();
+            setSelectedDate(today);
+          }
+          setShow(true);
+        }}
       >
         <Text style={[styles.text, !value && styles.placeholder]}>
-          {value ? formatDisplayValue(value) : (showTime ? placeholder : 'Seleccionar fecha')}
+          {displayValue ? formatDisplayValue(displayValue) : (showTime ? placeholder : 'Seleccionar fecha')}
         </Text>
         <Ionicons 
           name={showTime ? "time-outline" : "calendar-outline"} 

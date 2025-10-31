@@ -16,19 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
 import { API_CONFIG } from '../constants/Config';
+import { getLocalDateString } from '../utils/validations';
 
 const ReportsScreen = ({ navigation }) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const getLocalDateString = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [generating, setGenerating] = useState(false);
   const [hasError, setHasError] = useState(false);

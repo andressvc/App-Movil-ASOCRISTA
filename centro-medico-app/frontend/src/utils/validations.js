@@ -241,3 +241,22 @@ export const formatAmount = (amount) => {
   if (isNaN(num)) return '0.00';
   return num.toFixed(2);
 };
+
+// Función para obtener fecha local en formato YYYY-MM-DD (sin problemas de timezone)
+export const getLocalDateString = (date = null) => {
+  const d = date ? new Date(date) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Función para convertir Date a string YYYY-MM-DD (evita problema de UTC)
+export const dateToLocalString = (date) => {
+  if (!date) return null;
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
