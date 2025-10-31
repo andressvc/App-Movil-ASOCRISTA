@@ -5,7 +5,6 @@ const puppeteer = require('puppeteer');
 const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
 const path = require('path');
 const fs = require('fs').promises;
-const path = require('path');
 
 // REQ5 - Generar reporte diario
 const generarReporteDiario = async (req, res) => {
