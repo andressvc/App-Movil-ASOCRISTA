@@ -28,15 +28,30 @@ const PORT = process.env.PORT || 3000;
 // Esto permite que Express confíe en los headers de proxy (X-Forwarded-For, etc.)
 app.set('trust proxy', 1);
 
-// Middlewares de seguridad
-app.use(helmet());
-app.use(cors({
-  origin: [
-    'https://app-movil-asocrista.onrender.com', // Frontend web en Render
-    /^https:\/\/.*\.onrender\.com$/, // Permite cualquier subdominio de Render (para Android/testing)
-    'http://localhost:19006', // Expo web local
-    'http://localhost:3000', // Desarrollo local
-  ],
+// Configurar CORS ANTES de otros middlewares
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://app-movil-asocrista.onrender.com',
+      'http://localhost:19006',
+      'http://localhost:3000',
+    ];
+    
+    // Permitir cualquier subdominio de onrender.com
+    if (origin.match(/^https:\/\/.*\.onrender\.com$/)) {
+      return callback(null, true);
+    }
+    
+    // Verificar si el origen está en la lista permitida
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Permitir temporalmente para debugging
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -45,8 +60,24 @@ app.use(cors({
     'X-Requested-With',
     'Accept',
     'Cache-Control',
-    'Origin'
-  ]
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
+// Manejar preflight requests explícitamente
+app.options('*', cors(corsOptions));
+
+// Configurar Helmet para que no interfiera con CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
 }));
 
 // Rate limiting
