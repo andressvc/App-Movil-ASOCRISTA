@@ -13,14 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { financialService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
-import { getLocalDateString } from '../utils/validations';
+import { getTodayISO, parseISOToLocalDate, MX_TZ } from '../utils/date';
 
 const FinancialScreen = ({ navigation }) => {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedType, setSelectedType] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
+  const [selectedDate, setSelectedDate] = useState(getTodayISO(MX_TZ));
 
   const movementTypes = [
     { value: 'all', label: 'Todos', color: Colors.gray[500] },
@@ -116,7 +116,7 @@ const FinancialScreen = ({ navigation }) => {
       
       <View style={styles.movementFooter}>
         <Text style={styles.dateText}>
-          {new Date(item.fecha).toLocaleDateString('es-ES')}
+          {parseISOToLocalDate(item.fecha)?.toLocaleDateString('es-ES')}
         </Text>
         {item.metodo_pago && (
           <Text style={styles.paymentText}>{item.metodo_pago}</Text>
@@ -202,7 +202,7 @@ const FinancialScreen = ({ navigation }) => {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Resumen del Día</Text>
           <Text style={styles.summaryDate}>
-            {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', {
+            {selectedDate ? parseISOToLocalDate(selectedDate)?.toLocaleDateString('es-ES', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',

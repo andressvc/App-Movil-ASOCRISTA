@@ -158,6 +158,17 @@ const ProfileScreen = ({ navigation }) => {
 
       </View>
 
+      {/* Registro (Bitácora) */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Registro</Text>
+        <ProfileItem
+          icon="document-text-outline"
+          title="Bitácora"
+          subtitle="Historial de acciones de tu cuenta"
+          onPress={() => navigation.navigate('Bitacora')}
+        />
+      </View>
+
       {/* Soporte */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Soporte</Text>
