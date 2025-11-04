@@ -18,6 +18,7 @@ const pacienteRoutes = require('./routes/pacienteRoutes');
 const citaRoutes = require('./routes/citaRoutes');
 const movimientoFinancieroRoutes = require('./routes/movimientoFinancieroRoutes');
 const reporteRoutes = require('./routes/reporteRoutes');
+const bitacoraRoutes = require('./routes/bitacoraRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 
@@ -98,6 +99,7 @@ app.use('/api/citas', citaRoutes);
 app.use('/api/movimientos', movimientoFinancieroRoutes);
 app.use('/api/reportes', reporteRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/bitacora', bitacoraRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

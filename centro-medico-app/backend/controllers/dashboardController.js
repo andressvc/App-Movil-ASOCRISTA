@@ -1,12 +1,13 @@
 // controllers/dashboardController.js
 const { Paciente, Cita, MovimientoFinanciero, User } = require('../models');
 const { Op } = require('sequelize');
+const { DEFAULT_TZ, getTodayISO, toISODateInTimeZone } = require('../utils/dateUtils');
 
 // REQ9 - Obtener resumen del dashboard
 const obtenerResumen = async (req, res) => {
   try {
     const usuario_id = req.usuario.id;
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = getTodayISO(DEFAULT_TZ);
 
     // Obtener datos del día actual
     const [
@@ -43,7 +44,11 @@ const obtenerResumen = async (req, res) => {
       Cita.findAll({
         where: {
           fecha: {
-            [Op.between]: [hoy, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]]
+            [Op.between]: [
+              hoy,
+              // hoy + 7 días, en TZ
+              toISODateInTimeZone(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), DEFAULT_TZ)
+            ]
           },
           estado: { [Op.not]: 'cancelada' }
         },
@@ -90,7 +95,9 @@ const obtenerResumen = async (req, res) => {
     const balanceDiario = totalIngresos - totalEgresos;
 
     // Obtener estadísticas de la semana
-    const inicioSemana = new Date();
+    const now = new Date();
+    const inicioSemana = new Date(now);
+    // Inicio de semana (domingo) en calendario; rango en TZ al convertir
     inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
     const finSemana = new Date(inicioSemana);
     finSemana.setDate(finSemana.getDate() + 6);
@@ -100,8 +107,8 @@ const obtenerResumen = async (req, res) => {
         where: {
           fecha: {
             [Op.between]: [
-              inicioSemana.toISOString().split('T')[0],
-              finSemana.toISOString().split('T')[0]
+              toISODateInTimeZone(inicioSemana, DEFAULT_TZ),
+              toISODateInTimeZone(finSemana, DEFAULT_TZ)
             ]
           }
         }
@@ -110,8 +117,8 @@ const obtenerResumen = async (req, res) => {
         where: {
           fecha: {
             [Op.between]: [
-              inicioSemana.toISOString().split('T')[0],
-              finSemana.toISOString().split('T')[0]
+              toISODateInTimeZone(inicioSemana, DEFAULT_TZ),
+              toISODateInTimeZone(finSemana, DEFAULT_TZ)
             ]
           },
           usuario_id
@@ -223,26 +230,27 @@ const obtenerEstadisticas = async (req, res) => {
     const usuario_id = req.usuario.id;
 
     let fechaInicio, fechaFin;
-    const hoy = new Date();
+    const hoyDate = new Date();
+    const hoyISO = getTodayISO(DEFAULT_TZ);
 
     switch (periodo) {
       case 'dia':
-        fechaInicio = fechaFin = hoy.toISOString().split('T')[0];
+        fechaInicio = fechaFin = hoyISO;
         break;
       case 'semana':
-        fechaInicio = new Date(hoy);
-        fechaInicio.setDate(hoy.getDate() - hoy.getDay());
+        fechaInicio = new Date(hoyDate);
+        fechaInicio.setDate(hoyDate.getDate() - hoyDate.getDay());
         fechaFin = new Date(fechaInicio);
         fechaFin.setDate(fechaInicio.getDate() + 6);
-        fechaInicio = fechaInicio.toISOString().split('T')[0];
-        fechaFin = fechaFin.toISOString().split('T')[0];
+        fechaInicio = toISODateInTimeZone(fechaInicio, DEFAULT_TZ);
+        fechaFin = toISODateInTimeZone(fechaFin, DEFAULT_TZ);
         break;
       case 'mes':
-        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
-        fechaFin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
+        fechaInicio = toISODateInTimeZone(new Date(hoyDate.getFullYear(), hoyDate.getMonth(), 1), DEFAULT_TZ);
+        fechaFin = toISODateInTimeZone(new Date(hoyDate.getFullYear(), hoyDate.getMonth() + 1, 0), DEFAULT_TZ);
         break;
       default:
-        fechaInicio = fechaFin = hoy.toISOString().split('T')[0];
+        fechaInicio = fechaFin = hoyISO;
     }
 
     const [citas, movimientos] = await Promise.all([

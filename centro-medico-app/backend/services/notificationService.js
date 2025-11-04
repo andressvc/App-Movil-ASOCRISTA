@@ -19,9 +19,8 @@ class NotificationService {
       console.log('🔔 Enviando recordatorios de citas...');
 
       // Obtener citas del día siguiente que no han recibido recordatorio
-      const manana = new Date();
-      manana.setDate(manana.getDate() + 1);
-      const fechaManana = manana.toISOString().split('T')[0];
+      const { DEFAULT_TZ, getTomorrowISO } = require('../utils/dateUtils');
+      const fechaManana = getTomorrowISO(DEFAULT_TZ);
 
       const citasParaRecordatorio = await Cita.findAll({
         where: {

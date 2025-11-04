@@ -1,6 +1,7 @@
 // services/cronService.js
 const cron = require('node-cron');
-const { Reporte, Cita, Paciente, MovimientoFinanciero } = require('../models');
+const { Reporte, Cita, Paciente, MovimientoFinanciero, User } = require('../models');
+const { DEFAULT_TZ, getYesterdayISO } = require('../utils/dateUtils');
 const { Op } = require('sequelize');
 const reporteController = require('../controllers/reporteController');
 const notificationService = require('./notificationService');
@@ -59,10 +60,8 @@ class CronService {
       try {
         console.log('📊 Iniciando generación automática de reporte diario...');
         
-        // Obtener fecha de ayer
-        const ayer = new Date();
-        ayer.setDate(ayer.getDate() - 1);
-        const fechaAyer = ayer.toISOString().split('T')[0];
+        // Obtener fecha de ayer en TZ consistente
+        const fechaAyer = getYesterdayISO(DEFAULT_TZ);
         
         // Verificar si ya existe un reporte para esa fecha
         const reporteExistente = await Reporte.findOne({
@@ -74,24 +73,30 @@ class CronService {
           return;
         }
         
-        // Generar reporte para la fecha anterior
-        const req = {
-          body: { fecha: fechaAyer }
-        };
-        
-        const res = {
-          status: (code) => ({
-            json: (data) => {
-              if (code === 201) {
-                console.log(`✅ Reporte diario generado exitosamente para ${fechaAyer}`);
-              } else {
-                console.error(`❌ Error al generar reporte: ${data.message}`);
+        // Generar reporte para la fecha anterior por cada usuario activo
+        const usuarios = await User.findAll({ where: { activo: true } });
+        for (const usuario of usuarios) {
+          const req = {
+            params: { fecha: fechaAyer },
+            usuario: { id: usuario.id }
+          };
+          const res = {
+            status: (code) => ({
+              json: (data) => {
+                if (code === 201 || code === 200) {
+                  console.log(`✅ Reporte diario generado para usuario ${usuario.id} en ${fechaAyer}`);
+                } else {
+                  console.error(`❌ Error al generar reporte para usuario ${usuario.id}: ${data && data.message}`);
+                }
               }
-            }
-          })
-        };
-        
-        await reporteController.generarReporte(req, res);
+            })
+          };
+          try {
+            await reporteController.generarReporteDiario(req, res);
+          } catch (e) {
+            console.error(`Error generando reporte para usuario ${usuario.id}:`, e.message);
+          }
+        }
         
       } catch (error) {
         console.error('Error en generación automática de reportes:', error);

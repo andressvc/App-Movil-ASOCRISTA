@@ -1,6 +1,7 @@
 // controllers/citaController.js
 const { Cita, Paciente, User } = require('../models');
 const { Op } = require('sequelize');
+const { logBitacora } = require('../utils/bitacora');
 
 // REQ2 - Crear nueva cita/evento
 const crearCita = async (req, res) => {
@@ -98,6 +99,15 @@ const crearCita = async (req, res) => {
       success: true,
       message: 'Cita creada exitosamente',
       data: { cita: citaCompleta }
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'cita_creada',
+      descripcion: `Cita creada (${tipo}) para paciente ${paciente_id} el ${fecha} ${hora_inicio}-${hora_fin}`,
+      entidad: 'cita',
+      entidad_id: cita.id,
+      metadata: { paciente_id, fecha, hora_inicio, hora_fin, tipo }
     });
 
   } catch (error) {
@@ -338,6 +348,15 @@ const actualizarCita = async (req, res) => {
       data: { cita: citaActualizada }
     });
 
+    // Bitácora
+    logBitacora(req, {
+      accion: 'cita_actualizada',
+      descripcion: `Cita ${id} actualizada`,
+      entidad: 'cita',
+      entidad_id: id,
+      metadata: datosActualizacion
+    });
+
   } catch (error) {
     console.error('Error al actualizar cita:', error);
     res.status(500).json({
@@ -382,6 +401,15 @@ const cambiarEstadoCita = async (req, res) => {
       data: { cita }
     });
 
+    // Bitácora
+    logBitacora(req, {
+      accion: 'cita_estado',
+      descripcion: `Cita ${id} estado -> ${estado}`,
+      entidad: 'cita',
+      entidad_id: id,
+      metadata: { estado }
+    });
+
   } catch (error) {
     console.error('Error al cambiar estado:', error);
     res.status(500).json({
@@ -410,6 +438,14 @@ const eliminarCita = async (req, res) => {
     res.json({
       success: true,
       message: 'Cita eliminada exitosamente'
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'cita_eliminada',
+      descripcion: `Cita ${id} eliminada`,
+      entidad: 'cita',
+      entidad_id: id
     });
 
   } catch (error) {

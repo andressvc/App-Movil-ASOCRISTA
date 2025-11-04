@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../constants/Colors';
+import { getTodayISO, parseISOToLocalDate, MX_TZ } from '../utils/date';
 
 const SimpleDatePicker = ({ 
   value, 
@@ -18,8 +19,12 @@ const SimpleDatePicker = ({
   error,
   style 
 }) => {
+  const initial = useMemo(() => {
+    if (!value) return new Date(`${getTodayISO(MX_TZ)}T12:00:00`);
+    return typeof value === 'string' ? parseISOToLocalDate(value) : new Date(value);
+  }, [value]);
   const [show, setShow] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(value || new Date());
+  const [selectedDate, setSelectedDate] = useState(initial);
   const [showYearSelector, setShowYearSelector] = useState(false);
   
   const styles = getStyles();
@@ -64,7 +69,7 @@ const SimpleDatePicker = ({
     }
 
     // Días del mes actual
-    const today = new Date();
+    const today = new Date(`${getTodayISO(MX_TZ)}T12:00:00`);
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = day === today.getDate() && 
                      currentMonth === today.getMonth() && 

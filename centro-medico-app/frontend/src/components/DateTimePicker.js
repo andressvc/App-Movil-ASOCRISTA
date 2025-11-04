@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Theme } from '../constants/Colors';
+import { getTodayISO, parseISOToLocalDate, MX_TZ } from '../utils/date';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -22,9 +23,9 @@ const CustomDateTimePicker = ({
   style,
   showTime = true
 }) => {
-  // Inicializar con fecha actual en zona horaria local
+  // Inicializar con fecha actual en zona horaria MX (usar mediodía para evitar issues)
   const getInitialDate = () => {
-    const now = new Date();
+    const now = new Date(`${getTodayISO(MX_TZ)}T12:00:00`);
     now.setHours(12, 0, 0, 0); // Usar mediodía para evitar problemas de timezone
     return now;
   };
@@ -32,7 +33,7 @@ const CustomDateTimePicker = ({
   // Inicializar selectedDate con el valor pasado o fecha actual
   const initializeDate = () => {
     if (value) {
-      const d = new Date(value);
+      const d = typeof value === 'string' ? parseISOToLocalDate(value) : new Date(value);
       // Asegurar que está en zona local (usar mediodía para evitar problemas)
       d.setHours(12, 0, 0, 0);
       return d;
@@ -48,7 +49,7 @@ const CustomDateTimePicker = ({
   // Actualizar selectedDate cuando cambie el value prop
   useEffect(() => {
     if (value) {
-      const d = new Date(value);
+      const d = typeof value === 'string' ? parseISOToLocalDate(value) : new Date(value);
       d.setHours(12, 0, 0, 0);
       setSelectedDate(d);
     } else if (!showTime) {

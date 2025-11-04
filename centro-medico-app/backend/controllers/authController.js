@@ -2,6 +2,7 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { Op } = require('sequelize');
+const { logBitacora } = require('../utils/bitacora');
 
 // Generar JWT
 const generarJWT = (id) => {
@@ -73,6 +74,16 @@ const login = async (req, res) => {
         }
       }
     });
+
+    // Bitácora (no bloquear en caso de error)
+    try {
+      await logBitacora({ usuario: { id: usuario.id } }, {
+        accion: 'login',
+        descripcion: 'Inicio de sesión exitoso',
+        entidad: 'usuario',
+        entidad_id: usuario.id
+      });
+    } catch (_) {}
 
   } catch (error) {
     console.error('Error en login:', error);

@@ -207,6 +207,25 @@ const ReportDetailScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleOpenPDF = async () => {
+    try {
+      if (!report) return;
+      // Si hay URL pública (Cloudinary), abrir directamente
+      if (report.ruta_archivo && typeof report.ruta_archivo === 'string' && report.ruta_archivo.startsWith('http')) {
+        Linking.openURL(report.ruta_archivo);
+        return;
+      }
+      if (Platform.OS === 'web') {
+        await handleDownloadPDF();
+        return;
+      }
+      Alert.alert('Información', 'El PDF está disponible para descarga desde la versión web o si se configura almacenamiento en la nube.');
+    } catch (e) {
+      console.error('Error abriendo PDF:', e);
+      Alert.alert('Error', 'No se pudo abrir el PDF');
+    }
+  };
+
   const StatCard = ({ title, value, icon, color, subtitle }) => (
     <View style={styles.statCard}>
       <View style={styles.statHeader}>
@@ -254,16 +273,18 @@ const ReportDetailScreen = ({ navigation, route }) => {
           <Ionicons name="arrow-back" size={24} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.title}>Detalle del Reporte</Text>
-        <TouchableOpacity
-          style={styles.shareButton}
-          onPress={handleShare}
-        >
-          <Ionicons 
-            name={Platform.OS === 'web' ? "download-outline" : "share-outline"} 
-            size={24} 
-            color={Colors.primary} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleOpenPDF}>
+            <Ionicons name="document-outline" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <Ionicons 
+              name={Platform.OS === 'web' ? "download-outline" : "share-outline"} 
+              size={22} 
+              color={Colors.primary} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -428,6 +449,14 @@ const styles = StyleSheet.create({
   shareButton: {
     padding: 8,
     marginLeft: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   content: {
     flex: 1,

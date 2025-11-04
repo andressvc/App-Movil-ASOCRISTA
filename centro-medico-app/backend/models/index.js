@@ -4,6 +4,7 @@ const Paciente = require('./Paciente');
 const Cita = require('./Cita');
 const MovimientoFinanciero = require('./MovimientoFinanciero');
 const Reporte = require('./Reporte');
+const Bitacora = require('./Bitacora');
 
 // Definir relaciones entre modelos
 // Relaciones de Usuario
@@ -11,6 +12,7 @@ User.hasMany(Paciente, { foreignKey: 'usuario_id', as: 'pacientes' });
 User.hasMany(Cita, { foreignKey: 'usuario_id', as: 'citas' });
 User.hasMany(MovimientoFinanciero, { foreignKey: 'usuario_id', as: 'movimientos' });
 User.hasMany(Reporte, { foreignKey: 'usuario_id', as: 'reportes' });
+User.hasMany(Bitacora, { foreignKey: 'usuario_id', as: 'bitacora' });
 
 // Relaciones de Paciente
 Paciente.belongsTo(User, { foreignKey: 'usuario_id', as: 'usuario' });
@@ -29,11 +31,13 @@ MovimientoFinanciero.belongsTo(Cita, { foreignKey: 'cita_id', as: 'cita' });
 
 // Relaciones de Reporte
 Reporte.belongsTo(User, { foreignKey: 'usuario_id', as: 'usuario' });
+Bitacora.belongsTo(User, { foreignKey: 'usuario_id', as: 'usuario' });
 
 module.exports = {
   User,
   Paciente,
   Cita,
   MovimientoFinanciero,
-  Reporte
+  Reporte,
+  Bitacora
 };

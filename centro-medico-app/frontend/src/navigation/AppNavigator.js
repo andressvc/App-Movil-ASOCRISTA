@@ -28,6 +28,7 @@ import PersonalDataScreen from '../screens/PersonalDataScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import SupportScreen from '../screens/SupportScreen';
 import AboutScreen from '../screens/AboutScreen';
+import BitacoraScreen from '../screens/BitacoraScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -235,6 +236,11 @@ const ProfileStack = () => (
       name="About" 
       component={AboutScreen}
       options={{ title: 'Acerca de' }}
+    />
+    <Stack.Screen 
+      name="Bitacora" 
+      component={BitacoraScreen}
+      options={{ title: 'Bitácora' }}
     />
   </Stack.Navigator>
 );
