@@ -12,8 +12,6 @@ import {
   Platform,
   Linking,
 } from 'react-native';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
@@ -194,23 +192,17 @@ const ReportDetailScreen = ({ navigation, route }) => {
         return;
       }
 
-      // Descargar en móvil (Android/iOS) usando FileSystem
-      const fileName = `reporte_asocrista_${(report.fecha || 'diario').toString().slice(0,10)}.pdf`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      const downloadResult = await FileSystem.downloadAsync(
-        pdfUrl,
-        fileUri,
-        { headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' } }
-      );
-      if (downloadResult.status !== 200) {
-        throw new Error('Error al descargar PDF');
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(downloadResult.uri, { mimeType: 'application/pdf' });
-      } else {
-        Alert.alert('Descargado', `Archivo guardado en: ${downloadResult.uri}`);
+      // Descargar en móvil (Android/iOS) - usar token en query string
+      try {
+        // En móvil, agregar el token como query parameter ya que Linking.openURL no puede enviar headers
+        const pdfUrlWithToken = `${pdfUrl}?token=${encodeURIComponent(token)}`;
+        Linking.openURL(pdfUrlWithToken).catch((err) => {
+          console.error('Error abriendo PDF:', err);
+          Alert.alert('Error', 'No se pudo abrir el PDF. Intenta desde la versión web.');
+        });
+      } catch (linkError) {
+        console.error('Error al abrir PDF:', linkError);
+        Alert.alert('Error', 'No se pudo abrir el PDF');
       }
 
     } catch (error) {

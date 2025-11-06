@@ -4,8 +4,13 @@ const { User } = require('../models');
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // Obtener token del header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Obtener token del header o query string (para móvil)
+    let token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    // Si no está en header, intentar en query string (útil para móvil)
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
 
     if (!token) {
       return res.status(401).json({ 

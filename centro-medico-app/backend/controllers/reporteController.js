@@ -1,7 +1,7 @@
 // controllers/reporteController.js
 const { Reporte, Paciente, Cita, MovimientoFinanciero, User } = require('../models');
 const { Op } = require('sequelize');
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
 const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
 const path = require('path');
 const fs = require('fs').promises;
@@ -154,69 +154,231 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   };
 };
 
-// Función para generar PDF del reporte como Buffer
+// Función para generar PDF del reporte como Buffer usando pdfkit
 const generarPDFReporte = async (reporte, datos) => {
-  let browser = null;
-  try {
-    // Configuración de Puppeteer para Render y otros entornos de servidor
-    const puppeteerOptions = {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ],
-      timeout: 60000 // 60 segundos de timeout
-    };
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: {
+          top: 72,
+          bottom: 72,
+          left: 72,
+          right: 72
+        }
+      });
 
-    browser = await puppeteer.launch(puppeteerOptions);
-    const page = await browser.newPage();
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(buffers);
+        resolve(pdfBuffer);
+      });
+      doc.on('error', reject);
 
-    // Generar HTML del reporte
-    const html = await generarHTMLReporte(reporte, datos);
+      // Formatear fecha
+      const fechaFormateada = new Date(reporte.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
 
-    await page.setContent(html, { 
-      waitUntil: 'networkidle0',
-      timeout: 30000 
-    });
+      // Header con título
+      doc.fontSize(24)
+        .fillColor('#2E7D32')
+        .text('Centro de Rehabilitación ASOCRISTA', { align: 'center' })
+        .moveDown(0.5);
+      
+      doc.fontSize(16)
+        .fillColor('#555555')
+        .text('Reporte Diario', { align: 'center' })
+        .moveDown(0.3);
+      
+      doc.fontSize(12)
+        .text(fechaFormateada, { align: 'center' })
+        .moveDown(1);
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
-      },
-      timeout: 30000
-    });
+      // Línea divisoria
+      doc.strokeColor('#2E7D32')
+        .lineWidth(2)
+        .moveTo(72, doc.y)
+        .lineTo(522, doc.y)
+        .stroke()
+        .moveDown(1.5);
 
-    await browser.close();
-    browser = null;
+      // Estadísticas en grid (2 columnas)
+      const stats = [
+        { title: 'Pacientes Atendidos', value: reporte.total_pacientes },
+        { title: 'Total de Citas', value: reporte.total_citas },
+        { title: 'Citas Completadas', value: reporte.citas_completadas },
+        { title: 'Citas Canceladas', value: reporte.citas_canceladas },
+        { title: 'Total Ingresos', value: `Q ${parseFloat(reporte.total_ingresos).toFixed(2)}` },
+        { title: 'Total Egresos', value: `Q ${parseFloat(reporte.total_egresos).toFixed(2)}` },
+        { title: 'Balance Diario', value: `Q ${parseFloat(reporte.balance_diario).toFixed(2)}`, color: reporte.balance_diario >= 0 ? '#2E7D32' : '#dc3545' }
+      ];
 
-    return pdfBuffer;
+      let x = 72;
+      let y = doc.y;
+      const colWidth = 225;
+      const rowHeight = 60;
+      const startY = y;
 
-  } catch (error) {
-    console.error('Error al generar PDF:', error);
-    console.error('Error stack:', error.stack);
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('Error al cerrar el navegador:', closeError);
+      stats.forEach((stat, index) => {
+        const col = index % 2;
+        const row = Math.floor(index / 2);
+        const currentX = x + (col * colWidth);
+        const currentY = startY + (row * rowHeight);
+
+        // Fondo del card
+        doc.rect(currentX, currentY, colWidth - 10, rowHeight - 10)
+          .fillColor('#f8f9fa')
+          .fill()
+          .strokeColor('#2E7D32')
+          .lineWidth(2)
+          .moveTo(currentX, currentY)
+          .lineTo(currentX, currentY + rowHeight - 10)
+          .stroke();
+
+        // Texto
+        doc.fillColor('#333333')
+          .fontSize(10)
+          .text(stat.title.toUpperCase(), currentX + 10, currentY + 5, {
+            width: colWidth - 20,
+            align: 'left'
+          });
+
+        doc.fontSize(18)
+          .fillColor(stat.color || '#2E7D32')
+          .text(stat.value.toString(), currentX + 10, currentY + 25, {
+            width: colWidth - 20,
+            align: 'left'
+          });
+      });
+
+      doc.moveDown(2);
+
+      // Citas del día
+      doc.fontSize(16)
+        .fillColor('#2E7D32')
+        .text('Citas del Día', { underline: true })
+        .moveDown(0.5);
+
+      if (datos.citas && datos.citas.length > 0) {
+        // Headers de tabla
+        doc.fontSize(10)
+          .fillColor('#FFFFFF')
+          .rect(72, doc.y, 450, 20)
+          .fillColor('#2E7D32')
+          .fill()
+          .fillColor('#FFFFFF')
+          .text('Hora', 75, doc.y + 5, { width: 80 })
+          .text('Paciente', 155, doc.y + 5, { width: 150 })
+          .text('Tipo', 305, doc.y + 5, { width: 100 })
+          .text('Estado', 405, doc.y + 5, { width: 115 });
+
+        let tableY = doc.y + 20;
+        datos.citas.forEach((cita, index) => {
+          if (tableY > 700) {
+            doc.addPage();
+            tableY = 72;
+          }
+
+          const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
+          doc.rect(72, tableY, 450, 20)
+            .fillColor(bgColor)
+            .fill();
+
+          doc.fillColor('#333333')
+            .fontSize(9)
+            .text(`${cita.hora_inicio || ''} - ${cita.hora_fin || ''}`, 75, tableY + 5, { width: 80 })
+            .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 155, tableY + 5, { width: 150 })
+            .text((cita.tipo || '').replace('_', ' ').toUpperCase(), 305, tableY + 5, { width: 100 });
+
+          // Color según estado
+          const estadoColor = cita.estado === 'completada' ? '#28a745' : 
+                             cita.estado === 'cancelada' ? '#dc3545' : '#ffc107';
+          doc.fillColor(estadoColor)
+            .text((cita.estado || 'programada').replace('_', ' ').toUpperCase(), 405, tableY + 5, { width: 115 });
+
+          tableY += 20;
+        });
+        doc.y = tableY;
+      } else {
+        doc.fontSize(10)
+          .fillColor('#666666')
+          .text('No hay citas registradas para este día', { align: 'center' });
       }
+
+      doc.moveDown(1);
+
+      // Movimientos financieros
+      doc.fontSize(16)
+        .fillColor('#2E7D32')
+        .text('Movimientos Financieros', { underline: true })
+        .moveDown(0.5);
+
+      if (datos.movimientos && datos.movimientos.length > 0) {
+        // Headers de tabla
+        doc.fontSize(10)
+          .fillColor('#FFFFFF')
+          .rect(72, doc.y, 450, 20)
+          .fillColor('#2E7D32')
+          .fill()
+          .fillColor('#FFFFFF')
+          .text('Tipo', 75, doc.y + 5, { width: 80 })
+          .text('Descripción', 155, doc.y + 5, { width: 200 })
+          .text('Monto', 355, doc.y + 5, { width: 80 })
+          .text('Método', 435, doc.y + 5, { width: 85 });
+
+        let tableY = doc.y + 20;
+        datos.movimientos.forEach((mov, index) => {
+          if (tableY > 700) {
+            doc.addPage();
+            tableY = 72;
+          }
+
+          const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
+          doc.rect(72, tableY, 450, 20)
+            .fillColor(bgColor)
+            .fill();
+
+          doc.fillColor('#333333')
+            .fontSize(9)
+            .text((mov.tipo || '').toUpperCase(), 75, tableY + 5, { width: 80 })
+            .text(mov.descripcion || 'Sin descripción', 155, tableY + 5, { width: 200 })
+            .fillColor(mov.tipo === 'ingreso' ? '#28a745' : '#dc3545')
+            .text(`Q ${parseFloat(mov.monto || 0).toFixed(2)}`, 355, tableY + 5, { width: 80 })
+            .fillColor('#333333')
+            .text(mov.metodo_pago || 'N/A', 435, tableY + 5, { width: 85 });
+
+          tableY += 20;
+        });
+        doc.y = tableY;
+      } else {
+        doc.fontSize(10)
+          .fillColor('#666666')
+          .text('No hay movimientos financieros registrados para este día', { align: 'center' });
+      }
+
+      // Footer
+      doc.moveDown(2);
+      doc.fontSize(10)
+        .fillColor('#666666')
+        .text(`Reporte generado automáticamente el ${new Date().toLocaleString('es-ES')}`, { align: 'center' })
+        .moveDown(0.3)
+        .text('Centro Médico ASOCRISTA - Sistema de Gestión', { align: 'center' });
+
+      doc.end();
+
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      reject(error);
     }
-    throw error;
-  }
+  });
 };
 
-// Función para generar HTML del reporte con logo
+// Función para generar HTML del reporte con logo (NO USADA - Se usa pdfkit directamente)
+// Mantenida por compatibilidad pero ya no se usa
 const generarHTMLReporte = async (reporte, datos) => {
   const fechaFormateada = new Date(reporte.fecha).toLocaleDateString('es-ES', {
     year: 'numeric',
