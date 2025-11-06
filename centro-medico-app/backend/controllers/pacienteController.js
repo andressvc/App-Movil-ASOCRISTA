@@ -1,5 +1,6 @@
 // controllers/pacienteController.js
 const { Paciente, User } = require('../models');
+const { logBitacora } = require('../utils/bitacora');
 const { Op } = require('sequelize');
 
 // REQ1 - Registrar nuevo paciente
@@ -52,6 +53,15 @@ const crearPaciente = async (req, res) => {
       success: true,
       message: 'Paciente registrado exitosamente',
       data: { paciente }
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'paciente_creado',
+      descripcion: `Paciente ${paciente.id} creado`,
+      entidad: 'paciente',
+      entidad_id: paciente.id,
+      metadata: { codigo: paciente.codigo, nombre, apellido }
     });
 
   } catch (error) {
@@ -176,6 +186,15 @@ const actualizarPaciente = async (req, res) => {
       data: { paciente }
     });
 
+    // Bitácora
+    logBitacora(req, {
+      accion: 'paciente_actualizado',
+      descripcion: `Paciente ${id} actualizado`,
+      entidad: 'paciente',
+      entidad_id: id,
+      metadata: datosActualizacion
+    });
+
   } catch (error) {
     console.error('Error al actualizar paciente:', error);
     res.status(500).json({
@@ -206,6 +225,14 @@ const eliminarPaciente = async (req, res) => {
     res.json({
       success: true,
       message: 'Paciente eliminado exitosamente'
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'paciente_eliminado',
+      descripcion: `Paciente ${id} eliminado`,
+      entidad: 'paciente',
+      entidad_id: id
     });
 
   } catch (error) {

@@ -3,6 +3,7 @@ const { Reporte, Paciente, Cita, MovimientoFinanciero, User } = require('../mode
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
+const { logBitacora } = require('../utils/bitacora');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -84,6 +85,15 @@ const generarReporteDiario = async (req, res) => {
         rutaPDF,
         datos: datosDia
       }
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'reporte_generado',
+      descripcion: `Reporte diario generado ${reporte.fecha}`,
+      entidad: 'reporte',
+      entidad_id: reporte.id,
+      metadata: { fecha: reporte.fecha }
     });
 
   } catch (error) {
@@ -794,6 +804,14 @@ const eliminarReporte = async (req, res) => {
 
     await reporte.destroy();
     res.json({ success: true, message: 'Reporte eliminado' });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'reporte_eliminado',
+      descripcion: `Reporte ${id} eliminado`,
+      entidad: 'reporte',
+      entidad_id: id
+    });
   } catch (error) {
     console.error('Error al eliminar reporte:', error);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });

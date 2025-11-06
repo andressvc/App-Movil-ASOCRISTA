@@ -410,14 +410,14 @@ const PatientDetailScreen = ({ route, navigation }) => {
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('AddAppointment', { patientId: id })}
+            onPress={() => navigation.navigate('Appointments', { screen: 'AddAppointment', params: { patientId: id } })}
           >
             <Ionicons name="calendar-outline" size={24} color={Colors.primary} />
             <Text style={styles.actionText}>Nueva Cita</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('AddFinancial', { patientId: id })}
+            onPress={() => navigation.navigate('Financial', { screen: 'AddFinancial', params: { patientId: id } })}
           >
             <Ionicons name="cash-outline" size={24} color={Colors.primary} />
             <Text style={styles.actionText}>Nuevo Pago</Text>
