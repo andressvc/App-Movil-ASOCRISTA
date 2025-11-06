@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { patientService, appointmentService, financialService } from '../services/api';
@@ -423,7 +424,13 @@ const PatientDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('AddAppointment', { patientId: id })}
+            onPress={() => {
+              if (patient?.telefono) {
+                Linking.openURL(`tel:${patient.telefono}`);
+              } else {
+                Alert.alert('Información', 'El paciente no tiene número de teléfono registrado');
+              }
+            }}
           >
             <Ionicons name="call-outline" size={24} color={Colors.primary} />
             <Text style={styles.actionText}>Llamar</Text>

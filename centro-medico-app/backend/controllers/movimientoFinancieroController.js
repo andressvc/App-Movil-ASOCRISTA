@@ -1,5 +1,6 @@
 ﻿// controllers/movimientoFinancieroController.js
 const { MovimientoFinanciero, Paciente, Cita } = require('../models');
+const { logBitacora } = require('../utils/bitacora');
 const { Op } = require('sequelize');
 
 // REQ3 - Crear movimiento financiero
@@ -75,6 +76,15 @@ const crearMovimiento = async (req, res) => {
       success: true,
       message: 'Movimiento financiero creado exitosamente',
       data: movimientoCompleto
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'movimiento_creado',
+      descripcion: `Movimiento ${tipo} por Q${monto} (${categoria})`,
+      entidad: 'movimiento_financiero',
+      entidad_id: movimiento.id,
+      metadata: { tipo, categoria, monto, fecha, paciente_id: paciente_id || null, cita_id: cita_id || null, metodo_pago: metodo_pago || null }
     });
 
   } catch (error) {
@@ -381,6 +391,15 @@ const actualizarMovimiento = async (req, res) => {
       data: movimiento
     });
 
+    // Bitácora
+    logBitacora(req, {
+      accion: 'movimiento_actualizado',
+      descripcion: `Movimiento ${id} actualizado`,
+      entidad: 'movimiento_financiero',
+      entidad_id: id,
+      metadata: { tipo, categoria, descripcion, monto, fecha, paciente_id, cita_id, metodo_pago }
+    });
+
   } catch (error) {
     console.error('Error al actualizar movimiento financiero:', error);
     res.status(500).json({
@@ -412,6 +431,14 @@ const eliminarMovimiento = async (req, res) => {
     res.json({
       success: true,
       message: 'Movimiento financiero eliminado exitosamente'
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'movimiento_eliminado',
+      descripcion: `Movimiento ${id} eliminado`,
+      entidad: 'movimiento_financiero',
+      entidad_id: id
     });
 
   } catch (error) {

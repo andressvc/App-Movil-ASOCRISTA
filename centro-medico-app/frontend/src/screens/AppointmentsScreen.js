@@ -67,6 +67,18 @@ const AppointmentsScreen = ({ navigation, route }) => {
     setRefreshing(false);
   }, [loadAppointments, selectedDate, filters]);
 
+  const formatLocalDateLong = (dateStr) => {
+    if (!dateStr) return 'Todas las Citas';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const localDate = new Date(y, (m || 1) - 1, d || 1);
+    return localDate.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
   }, []);
@@ -224,12 +236,7 @@ const AppointmentsScreen = ({ navigation, route }) => {
       <View style={styles.dateSelector}>
         <View style={styles.dateInfo}>
           <Text style={styles.dateText}>
-            {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }) : 'Todas las Citas'}
+            {formatLocalDateLong(selectedDate)}
           </Text>
           <Text style={styles.appointmentCount}>
             {appointments.length} citas

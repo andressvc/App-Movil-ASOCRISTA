@@ -12,6 +12,8 @@ import {
   Platform,
   Linking,
 } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
 import { Colors, Theme } from '../constants/Colors';
@@ -152,53 +154,63 @@ const ReportDetailScreen = ({ navigation, route }) => {
         return;
       }
 
-      // Verificar que estamos en web
-      if (Platform.OS !== 'web') {
-        return;
-      }
-
-      // Obtener token de autenticación
+      // Preparar URL y token
+      const pdfUrl = `${API_CONFIG.BASE_URL}/reportes/${report.id}/pdf`;
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      
       if (!token) {
         Alert.alert('Error', 'No estás autenticado');
         return;
       }
 
-      // URL del PDF
-      const pdfUrl = `${API_CONFIG.BASE_URL}/reportes/${report.id}/pdf`;
-      
-      // Descargar PDF con autenticación
-      try {
-        const response = await fetch(pdfUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/pdf'
+      if (Platform.OS === 'web') {
+        // Descargar en Web
+        try {
+          const response = await fetch(pdfUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/pdf'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Error al descargar PDF');
           }
-        });
 
-        if (!response.ok) {
-          throw new Error('Error al descargar PDF');
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `reporte_asocrista_${report.fecha || 'diario'}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          Alert.alert('Éxito', 'PDF descargado correctamente');
+        } catch (fetchError) {
+          console.error('Error descargando PDF:', fetchError);
+          window.open(pdfUrl, '_blank');
         }
+        return;
+      }
 
-        const blob = await response.blob();
-        
-        // Crear URL temporal y descargar
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `reporte_asocrista_${report.fecha || 'diario'}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        Alert.alert('Éxito', 'PDF descargado correctamente');
-      } catch (fetchError) {
-        console.error('Error descargando PDF:', fetchError);
-        // Fallback: intentar abrir directamente (puede que el backend redirija)
-        window.open(pdfUrl, '_blank');
+      // Descargar en móvil (Android/iOS) usando FileSystem
+      const fileName = `reporte_asocrista_${(report.fecha || 'diario').toString().slice(0,10)}.pdf`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      const downloadResult = await FileSystem.downloadAsync(
+        pdfUrl,
+        fileUri,
+        { headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' } }
+      );
+      if (downloadResult.status !== 200) {
+        throw new Error('Error al descargar PDF');
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(downloadResult.uri, { mimeType: 'application/pdf' });
+      } else {
+        Alert.alert('Descargado', `Archivo guardado en: ${downloadResult.uri}`);
       }
 
     } catch (error) {
@@ -215,11 +227,7 @@ const ReportDetailScreen = ({ navigation, route }) => {
         Linking.openURL(report.ruta_archivo);
         return;
       }
-      if (Platform.OS === 'web') {
-        await handleDownloadPDF();
-        return;
-      }
-      Alert.alert('Información', 'El PDF está disponible para descarga desde la versión web o si se configura almacenamiento en la nube.');
+      await handleDownloadPDF();
     } catch (e) {
       console.error('Error abriendo PDF:', e);
       Alert.alert('Error', 'No se pudo abrir el PDF');

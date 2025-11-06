@@ -278,7 +278,7 @@ const generarHTMLReporte = async (reporte, datos) => {
             .header h1 {
                 color: #2E7D32;
                 margin: 10px 0;
-                font-size: 32px;
+                font-size: 28px;
                 font-weight: bold;
             }
             .header h2 {
@@ -364,8 +364,8 @@ const generarHTMLReporte = async (reporte, datos) => {
         <div class="container">
             <div class="header">
                 ${logoBase64 ? `<div class="logo-container"><img src="data:image/png;base64,${logoBase64}" class="logo" alt="ASOCRISTA Logo" /></div>` : ''}
-                <h1>REPORTE DIARIO</h1>
-                <h2>Centro Médico ASOCRISTA</h2>
+                <h1>Centro de Rehabilitación ASOCRISTA</h1>
+                <h2>Reporte diario</h2>
                 <h2 style="margin-top: 8px; font-size: 16px;">${fechaFormateada}</h2>
             </div>
 
