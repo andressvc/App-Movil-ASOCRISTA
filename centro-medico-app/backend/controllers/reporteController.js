@@ -183,6 +183,15 @@ const generarPDFReporte = async (reporte, datos) => {
         day: 'numeric'
       });
 
+      // Header con logo y título
+      try {
+        const logoPath = path.join(__dirname, '../../frontend/assets/asologo.png');
+        doc.image(logoPath, (595 - 100) / 2, doc.y, { width: 100 });
+        doc.moveDown(1.2);
+      } catch (e) {
+        // Si no hay logo, continuar con texto
+      }
+
       // Header con título
       doc.fontSize(24)
         .fillColor('#2E7D32')
@@ -206,7 +215,7 @@ const generarPDFReporte = async (reporte, datos) => {
         .stroke()
         .moveDown(1.5);
 
-      // Estadísticas en grid (2 columnas)
+      // Estadísticas en grid (2 columnas) estilo formal (sin bordes de color)
       const stats = [
         { title: 'Pacientes Atendidos', value: reporte.total_pacientes },
         { title: 'Total de Citas', value: reporte.total_citas },
@@ -229,15 +238,10 @@ const generarPDFReporte = async (reporte, datos) => {
         const currentX = x + (col * colWidth);
         const currentY = startY + (row * rowHeight);
 
-        // Fondo del card
+        // Fondo del card simple
         doc.rect(currentX, currentY, colWidth - 10, rowHeight - 10)
-          .fillColor('#f8f9fa')
-          .fill()
-          .strokeColor('#2E7D32')
-          .lineWidth(2)
-          .moveTo(currentX, currentY)
-          .lineTo(currentX, currentY + rowHeight - 10)
-          .stroke();
+          .fillColor('#f6f7f9')
+          .fill();
 
         // Texto
         doc.fillColor('#333333')
@@ -770,9 +774,36 @@ const descargarPDFReporte = async (req, res) => {
   }
 };
 
+// Eliminar reporte
+const eliminarReporte = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario_id = req.usuario.id;
+
+    const reporte = await Reporte.findOne({ where: { id, usuario_id } });
+    if (!reporte) {
+      return res.status(404).json({ success: false, message: 'Reporte no encontrado' });
+    }
+
+    // Intentar eliminar archivo local si existe (ignorar errores)
+    try {
+      if (reporte.ruta_archivo && !reporte.ruta_archivo.startsWith('http')) {
+        await fs.unlink(reporte.ruta_archivo).catch(() => {});
+      }
+    } catch (e) {}
+
+    await reporte.destroy();
+    res.json({ success: true, message: 'Reporte eliminado' });
+  } catch (error) {
+    console.error('Error al eliminar reporte:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   generarReporteDiario,
   obtenerReportes,
   obtenerReporte,
-  descargarPDFReporte
+  descargarPDFReporte,
+  eliminarReporte
 };

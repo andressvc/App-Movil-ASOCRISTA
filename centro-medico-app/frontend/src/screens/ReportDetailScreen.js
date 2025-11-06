@@ -226,6 +226,31 @@ const ReportDetailScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      if (!report?.id) return;
+      Alert.alert('Eliminar', '¿Deseas eliminar este reporte?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: async () => {
+            try {
+              const resp = await reportService.deleteReport(report.id);
+              if (resp.success) {
+                Alert.alert('Eliminado', 'Reporte eliminado');
+                navigation.goBack();
+              } else {
+                Alert.alert('Error', resp.message || 'No se pudo eliminar');
+              }
+            } catch (e) {
+              console.error('Delete report error:', e);
+              Alert.alert('Error', 'No se pudo eliminar el reporte');
+            }
+          } }
+      ]);
+    } catch (e) {
+      console.error('Error deleting:', e);
+    }
+  };
+
   const StatCard = ({ title, value, icon, color, subtitle }) => (
     <View style={styles.statCard}>
       <View style={styles.statHeader}>
@@ -276,6 +301,9 @@ const ReportDetailScreen = ({ navigation, route }) => {
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconButton} onPress={handleOpenPDF}>
             <Ionicons name="document-outline" size={22} color={Colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={22} color={Colors.error} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
             <Ionicons 

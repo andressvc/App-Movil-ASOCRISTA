@@ -231,6 +231,10 @@ export const reportService = {
     const response = await api.get(`/reportes/${id}`);
     return response.data;
   },
+  deleteReport: async (id) => {
+    const response = await api.delete(`/reportes/${id}`);
+    return response.data;
+  },
 };
 
 // Servicios de dashboard

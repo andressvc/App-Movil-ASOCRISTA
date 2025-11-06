@@ -53,7 +53,19 @@ const AddAppointmentScreen = ({ navigation, route }) => {
   ];
 
   useEffect(() => {
-    loadPatients();
+    loadPatients().then(async () => {
+      const { patientId } = route.params || {};
+      if (patientId) {
+        try {
+          const resp = await patientService.getPatient(patientId);
+          if (resp.success) {
+            const p = resp.data.paciente;
+            setSelectedPatient(p);
+            setFormData(prev => ({ ...prev, paciente_id: p.id }));
+          }
+        } catch (e) {}
+      }
+    });
     if (isEditing) {
       loadAppointment();
     }

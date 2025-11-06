@@ -99,7 +99,7 @@ const crearMovimiento = async (req, res) => {
 // REQ3 - Listar movimientos financieros
 const listarMovimientos = async (req, res) => {
   try {
-    const { fecha, tipo, categoria, page = 1, limit = 10 } = req.query;
+    const { fecha, tipo, categoria, paciente_id, page = 1, limit = 10 } = req.query;
     const usuario_id = req.usuario.id;
 
     // Construir filtros
@@ -115,6 +115,10 @@ const listarMovimientos = async (req, res) => {
     
     if (categoria) {
       filtros.categoria = { [Op.like]: `%${categoria}%` };
+    }
+
+    if (paciente_id) {
+      filtros.paciente_id = paciente_id;
     }
 
     // Calcular offset para paginación

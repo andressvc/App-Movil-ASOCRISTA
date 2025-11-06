@@ -31,16 +31,10 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
   const loadAppointmentData = async () => {
     try {
       setLoading(true);
-      const [appointmentResponse, paymentsResponse] = await Promise.all([
-        appointmentService.getAppointment(id),
-        financialService.getMovements({ cita_id: id })
-      ]);
+      const appointmentResponse = await appointmentService.getAppointment(id);
 
       if (appointmentResponse.success) {
         setAppointment(appointmentResponse.data.cita);
-      }
-      if (paymentsResponse.success) {
-        setPayments(paymentsResponse.data.movimientos || []);
       }
     } catch (error) {
       console.error('Error loading appointment data:', error);
@@ -69,30 +63,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleAddPayment = async (paymentData) => {
-    try {
-      setUpdating(true);
-      const response = await financialService.createMovement({
-        ...paymentData,
-        cita_id: id,
-        paciente_id: appointment.paciente_id,
-        tipo: 'ingreso',
-        categoria: 'consulta'
-      });
-      if (response.success) {
-        setPayments(prev => [response.data, ...prev]);
-        setShowPaymentModal(false);
-        Alert.alert('Éxito', 'Pago registrado correctamente');
-      } else {
-        Alert.alert('Error', response.message || 'No se pudo registrar el pago');
-      }
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      Alert.alert('Error', 'No se pudo registrar el pago');
-    } finally {
-      setUpdating(false);
-    }
-  };
+  const handleAddPayment = async () => {};
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -255,57 +226,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* Payment Summary */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Resumen de Pagos</Text>
-          <TouchableOpacity
-            style={styles.addPaymentButton}
-            onPress={() => setShowPaymentModal(true)}
-          >
-            <Ionicons name="add" size={20} color={Colors.white} />
-            <Text style={styles.addPaymentText}>Agregar Pago</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.paymentSummary}>
-          <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>Total Pagado:</Text>
-            <Text style={[styles.paymentValue, { color: Colors.success }]}>
-              {formatCurrency(totalPaid)}
-            </Text>
-          </View>
-          <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>Pagos Registrados:</Text>
-            <Text style={styles.paymentValue}>{payments.length}</Text>
-          </View>
-        </View>
-
-        {payments.length > 0 && (
-          <View style={styles.paymentsList}>
-            {payments.map((payment) => (
-              <View key={payment.id} style={styles.paymentCard}>
-                <View style={styles.paymentHeader}>
-                  <View style={styles.paymentType}>
-                    <Ionicons name="cash-outline" size={20} color={Colors.success} />
-                    <Text style={styles.paymentTypeText}>PAGO</Text>
-                  </View>
-                  <Text style={[styles.paymentAmount, { color: Colors.success }]}>
-                    {formatCurrency(payment.monto)}
-                  </Text>
-                </View>
-                <Text style={styles.paymentDescription}>{payment.descripcion}</Text>
-                <View style={styles.paymentFooter}>
-                  <Text style={styles.paymentDate}>{formatDate(payment.fecha)}</Text>
-                  {payment.metodo_pago && (
-                    <Text style={styles.paymentMethod}>{payment.metodo_pago}</Text>
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      {/* Pagos retirados según requisitos */}
 
       {/* Actions */}
       <View style={styles.section}>
@@ -320,24 +241,10 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => setShowPaymentModal(true)}
-          >
-            <Ionicons name="cash-outline" size={24} color={Colors.primary} />
-            <Text style={styles.actionText}>Registrar Pago</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('AddAppointment', { id: appointment.id })}
+            onPress={() => navigation.navigate('AddAppointment', { appointmentId: appointment.id })}
           >
             <Ionicons name="create-outline" size={24} color={Colors.primary} />
             <Text style={styles.actionText}>Editar Cita</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('PatientDetail', { id: appointment.paciente_id })}
-          >
-            <Ionicons name="person-outline" size={24} color={Colors.primary} />
-            <Text style={styles.actionText}>Ver Paciente</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -351,13 +258,7 @@ const AppointmentDetailScreen = ({ route, navigation }) => {
         loading={updating}
       />
 
-      {/* Add Payment Modal */}
-      <AddPaymentModal
-        visible={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onAddPayment={handleAddPayment}
-        loading={updating}
-      />
+      {/* Modal de pago eliminado */}
     </ScrollView>
   );
 };
