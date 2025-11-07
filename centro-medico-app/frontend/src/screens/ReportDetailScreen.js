@@ -230,73 +230,113 @@ const ReportDetailScreen = ({ navigation, route }) => {
     console.log('🔴 handleDelete llamado, ID del reporte:', report?.id);
     
     if (!report?.id) {
-      Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
+      if (Platform.OS === 'web') {
+        window.alert('Error: No se puede eliminar el reporte: ID no válido');
+      } else {
+        Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
+      }
       return;
     }
 
-    Alert.alert(
-      'Eliminar Reporte',
-      '¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.',
-      [
-        {
-          text: 'Volver',
-          style: 'cancel',
-          onPress: () => {
-            console.log('❌ Usuario canceló la eliminación del reporte');
-            // No hacer nada, solo cerrar la alerta
-          }
-        },
-        {
-          text: 'Continuar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Usuario confirmó eliminación. Intentando eliminar reporte ID:', report.id);
-              const resp = await reportService.deleteReport(report.id);
-              console.log('📥 Respuesta de eliminación:', resp);
-              
-              if (resp && resp.success) {
-                Alert.alert('Éxito', 'Reporte eliminado correctamente', [
-                  { 
-                    text: 'OK', 
-                    onPress: () => {
-                      console.log('✅ Navegando hacia atrás después de eliminar reporte');
-                      navigation.goBack();
-                    }
-                  }
-                ]);
-              } else {
-                Alert.alert('Error', resp?.message || 'No se pudo eliminar el reporte');
-              }
-            } catch (e) {
-              console.error('❌ Delete report error:', e);
-              console.error('Error details:', e.response?.data || e.message);
-              
-              let errorMessage = 'No se pudo eliminar el reporte';
-              
-              if (e.response?.status === 401) {
-                errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-                Alert.alert('Sesión Expirada', errorMessage, [
-                  { text: 'OK', onPress: () => navigation.navigate('Login') }
-                ]);
-                return;
-              } else if (e.response?.status === 404) {
-                errorMessage = 'Reporte no encontrado';
-              } else if (e.response?.status === 403) {
-                errorMessage = 'No tienes permisos para eliminar este reporte';
-              } else if (e.response?.data?.message) {
-                errorMessage = e.response.data.message;
-              } else if (e.message) {
-                errorMessage = e.message;
-              }
-              
-              Alert.alert('Error', errorMessage);
+    const confirmMessage = '¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.';
+    
+    if (Platform.OS === 'web') {
+      // Usar window.confirm para web
+      const confirmed = window.confirm(confirmMessage);
+      if (!confirmed) {
+        console.log('❌ Usuario canceló la eliminación del reporte');
+        return;
+      }
+      
+      // Si confirmó, proceder con la eliminación
+      executeDelete();
+    } else {
+      // Usar Alert.alert para móvil
+      Alert.alert(
+        'Eliminar Reporte',
+        confirmMessage,
+        [
+          {
+            text: 'Volver',
+            style: 'cancel',
+            onPress: () => {
+              console.log('❌ Usuario canceló la eliminación del reporte');
             }
+          },
+          {
+            text: 'Continuar',
+            style: 'destructive',
+            onPress: executeDelete
           }
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
+  const executeDelete = async () => {
+    try {
+      console.log('🗑️ Usuario confirmó eliminación. Intentando eliminar reporte ID:', report.id);
+      const resp = await reportService.deleteReport(report.id);
+      console.log('📥 Respuesta de eliminación:', resp);
+      
+      if (resp && resp.success) {
+        const successMessage = 'Reporte eliminado correctamente';
+        if (Platform.OS === 'web') {
+          window.alert(successMessage);
+          navigation.goBack();
+        } else {
+          Alert.alert('Éxito', successMessage, [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                console.log('✅ Navegando hacia atrás después de eliminar reporte');
+                navigation.goBack();
+              }
+            }
+          ]);
         }
-      ],
-      { cancelable: true }
-    );
+      } else {
+        const errorMsg = resp?.message || 'No se pudo eliminar el reporte';
+        if (Platform.OS === 'web') {
+          window.alert('Error: ' + errorMsg);
+        } else {
+          Alert.alert('Error', errorMsg);
+        }
+      }
+    } catch (e) {
+      console.error('❌ Delete report error:', e);
+      console.error('Error details:', e.response?.data || e.message);
+      
+      let errorMessage = 'No se pudo eliminar el reporte';
+      
+      if (e.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        if (Platform.OS === 'web') {
+          window.alert(errorMessage);
+          navigation.navigate('Login');
+        } else {
+          Alert.alert('Sesión Expirada', errorMessage, [
+            { text: 'OK', onPress: () => navigation.navigate('Login') }
+          ]);
+        }
+        return;
+      } else if (e.response?.status === 404) {
+        errorMessage = 'Reporte no encontrado';
+      } else if (e.response?.status === 403) {
+        errorMessage = 'No tienes permisos para eliminar este reporte';
+      } else if (e.response?.data?.message) {
+        errorMessage = e.response.data.message;
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      if (Platform.OS === 'web') {
+        window.alert('Error: ' + errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+    }
   };
 
   const StatCard = ({ title, value, icon, color, subtitle }) => (
