@@ -120,23 +120,43 @@ const PatientDetailScreen = ({ route, navigation }) => {
   };
 
   const handleDeletePatient = () => {
+    console.log('🔴 handleDeletePatient llamado, ID del paciente:', id);
+    
+    if (!id) {
+      Alert.alert('Error', 'No se puede eliminar: ID de paciente no válido');
+      return;
+    }
+
     Alert.alert(
       'Eliminar Paciente',
-      '¿Estás seguro de que quieres eliminar este paciente? Esta acción no se puede deshacer.',
+      '¿Estás seguro de que deseas eliminar este paciente? Esta acción no se puede deshacer.',
       [
-        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: 'Volver',
+          style: 'cancel',
+          onPress: () => {
+            console.log('❌ Usuario canceló la eliminación');
+            // No hacer nada, solo cerrar la alerta
+          }
+        },
+        {
+          text: 'Continuar',
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🗑️ Intentando eliminar paciente ID:', id);
+              console.log('🗑️ Usuario confirmó eliminación. Intentando eliminar paciente ID:', id);
               const response = await patientService.deletePatient(id);
               console.log('📥 Respuesta de eliminación:', response);
               
               if (response && response.success) {
                 Alert.alert('Éxito', 'Paciente eliminado correctamente', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
+                  { 
+                    text: 'OK', 
+                    onPress: () => {
+                      console.log('✅ Navegando hacia atrás después de eliminar');
+                      navigation.goBack();
+                    }
+                  }
                 ]);
               } else {
                 Alert.alert('Error', response?.message || 'No se pudo eliminar el paciente');
@@ -165,9 +185,10 @@ const PatientDetailScreen = ({ route, navigation }) => {
               
               Alert.alert('Error', errorMessage);
             }
-          },
-        },
-      ]
+          }
+        }
+      ],
+      { cancelable: true }
     );
   };
 
@@ -489,10 +510,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.dangerButton]}
-            onPress={() => {
-              console.log('🔴 Botón eliminar presionado');
-              handleDeletePatient();
-            }}
+            onPress={handleDeletePatient}
             activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={24} color={Colors.error} />

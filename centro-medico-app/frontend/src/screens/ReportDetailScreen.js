@@ -226,27 +226,44 @@ const ReportDetailScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      if (!report?.id) {
-        Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
-        return;
-      }
-      
-      Alert.alert('Eliminar Reporte', '¿Deseas eliminar este reporte? Esta acción no se puede deshacer.', [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
-          style: 'destructive', 
+  const handleDelete = () => {
+    console.log('🔴 handleDelete llamado, ID del reporte:', report?.id);
+    
+    if (!report?.id) {
+      Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar Reporte',
+      '¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.',
+      [
+        {
+          text: 'Volver',
+          style: 'cancel',
+          onPress: () => {
+            console.log('❌ Usuario canceló la eliminación del reporte');
+            // No hacer nada, solo cerrar la alerta
+          }
+        },
+        {
+          text: 'Continuar',
+          style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🗑️ Intentando eliminar reporte ID:', report.id);
+              console.log('🗑️ Usuario confirmó eliminación. Intentando eliminar reporte ID:', report.id);
               const resp = await reportService.deleteReport(report.id);
               console.log('📥 Respuesta de eliminación:', resp);
               
               if (resp && resp.success) {
                 Alert.alert('Éxito', 'Reporte eliminado correctamente', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
+                  { 
+                    text: 'OK', 
+                    onPress: () => {
+                      console.log('✅ Navegando hacia atrás después de eliminar reporte');
+                      navigation.goBack();
+                    }
+                  }
                 ]);
               } else {
                 Alert.alert('Error', resp?.message || 'No se pudo eliminar el reporte');
@@ -275,13 +292,11 @@ const ReportDetailScreen = ({ navigation, route }) => {
               
               Alert.alert('Error', errorMessage);
             }
-          } 
+          }
         }
-      ]);
-    } catch (e) {
-      console.error('❌ Error in handleDelete:', e);
-      Alert.alert('Error', 'Ocurrió un error inesperado');
-    }
+      ],
+      { cancelable: true }
+    );
   };
 
   const StatCard = ({ title, value, icon, color, subtitle }) => (
@@ -337,10 +352,7 @@ const ReportDetailScreen = ({ navigation, route }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => {
-              console.log('🔴 Botón eliminar reporte presionado');
-              handleDelete();
-            }}
+            onPress={handleDelete}
             activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={22} color={Colors.error} />
