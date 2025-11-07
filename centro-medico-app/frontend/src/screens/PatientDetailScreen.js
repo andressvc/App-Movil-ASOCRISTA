@@ -121,116 +121,61 @@ const PatientDetailScreen = ({ route, navigation }) => {
   };
 
   const handleDeletePatient = () => {
-    console.log('🔴 handleDeletePatient llamado, ID del paciente:', id);
-    
     if (!id) {
-      if (Platform.OS === 'web') {
-        window.alert('Error: No se puede eliminar: ID de paciente no válido');
-      } else {
-        Alert.alert('Error', 'No se puede eliminar: ID de paciente no válido');
-      }
+      Alert.alert('Error', 'No se puede eliminar: ID de paciente no válido');
       return;
     }
 
-    const confirmMessage = '¿Estás seguro de que deseas eliminar este paciente? Esta acción no se puede deshacer.';
-    
-    if (Platform.OS === 'web') {
-      // Usar window.confirm para web
-      const confirmed = window.confirm(confirmMessage);
-      if (!confirmed) {
-        console.log('❌ Usuario canceló la eliminación');
-        return;
-      }
-      
-      // Si confirmó, proceder con la eliminación
-      executeDeletePatient();
-    } else {
-      // Usar Alert.alert para móvil
-      Alert.alert(
-        'Eliminar Paciente',
-        confirmMessage,
-        [
-          {
-            text: 'Volver',
-            style: 'cancel',
-            onPress: () => {
-              console.log('❌ Usuario canceló la eliminación');
-            }
-          },
-          {
-            text: 'Continuar',
-            style: 'destructive',
-            onPress: executeDeletePatient
-          }
-        ],
-        { cancelable: true }
-      );
-    }
-  };
-
-  const executeDeletePatient = async () => {
-    try {
-      console.log('🗑️ Usuario confirmó eliminación. Intentando eliminar paciente ID:', id);
-      const response = await patientService.deletePatient(id);
-      console.log('📥 Respuesta de eliminación:', response);
-      
-      if (response && response.success) {
-        const successMessage = 'Paciente eliminado correctamente';
-        if (Platform.OS === 'web') {
-          window.alert(successMessage);
-          navigation.goBack();
-        } else {
-          Alert.alert('Éxito', successMessage, [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                console.log('✅ Navegando hacia atrás después de eliminar');
-                navigation.goBack();
+    Alert.alert(
+      'Eliminar Paciente',
+      '¿Estás seguro de que deseas eliminar este paciente? Esta acción no se puede deshacer.',
+      [
+        {
+          text: 'Volver',
+          style: 'cancel'
+        },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await patientService.deletePatient(id);
+              
+              if (response && response.success) {
+                Alert.alert('Éxito', 'Paciente eliminado correctamente', [
+                  { 
+                    text: 'OK', 
+                    onPress: () => navigation.goBack()
+                  }
+                ]);
+              } else {
+                Alert.alert('Error', response?.message || 'No se pudo eliminar el paciente');
               }
+            } catch (error) {
+              let errorMessage = 'No se pudo eliminar el paciente';
+              
+              if (error.response?.status === 401) {
+                errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+                Alert.alert('Sesión Expirada', errorMessage, [
+                  { text: 'OK', onPress: () => navigation.navigate('Login') }
+                ]);
+                return;
+              } else if (error.response?.status === 404) {
+                errorMessage = 'Paciente no encontrado';
+              } else if (error.response?.status === 403) {
+                errorMessage = 'No tienes permisos para eliminar este paciente';
+              } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              } else if (error.message) {
+                errorMessage = error.message;
+              }
+              
+              Alert.alert('Error', errorMessage);
             }
-          ]);
+          }
         }
-      } else {
-        const errorMsg = response?.message || 'No se pudo eliminar el paciente';
-        if (Platform.OS === 'web') {
-          window.alert('Error: ' + errorMsg);
-        } else {
-          Alert.alert('Error', errorMsg);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error deleting patient:', error);
-      console.error('Error details:', error.response?.data || error.message);
-      
-      let errorMessage = 'No se pudo eliminar el paciente';
-      
-      if (error.response?.status === 401) {
-        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-        if (Platform.OS === 'web') {
-          window.alert(errorMessage);
-          navigation.navigate('Login');
-        } else {
-          Alert.alert('Sesión Expirada', errorMessage, [
-            { text: 'OK', onPress: () => navigation.navigate('Login') }
-          ]);
-        }
-        return;
-      } else if (error.response?.status === 404) {
-        errorMessage = 'Paciente no encontrado';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'No tienes permisos para eliminar este paciente';
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      if (Platform.OS === 'web') {
-        window.alert('Error: ' + errorMessage);
-      } else {
-        Alert.alert('Error', errorMessage);
-      }
-    }
+      ]
+    );
   };
 
   const formatDate = (dateString) => {
@@ -511,35 +456,12 @@ const PatientDetailScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
-              // Llamar directamente al contacto de emergencia
               if (patient?.telefono_emergencia) {
-                console.log('📞 Llamando al contacto de emergencia:', patient.telefono_emergencia);
-                Linking.openURL(`tel:${patient.telefono_emergencia}`).catch((err) => {
-                  console.error('Error al abrir teléfono:', err);
-                  if (Platform.OS === 'web') {
-                    window.alert(`No se pudo abrir el teléfono. Número: ${patient.telefono_emergencia}`);
-                  } else {
-                    Alert.alert('Error', `No se pudo abrir el teléfono. Número: ${patient.telefono_emergencia}`);
-                  }
-                });
+                Linking.openURL(`tel:${patient.telefono_emergencia}`);
               } else if (patient?.telefono) {
-                // Si no hay contacto de emergencia, usar el teléfono del paciente
-                console.log('📞 Llamando al paciente:', patient.telefono);
-                Linking.openURL(`tel:${patient.telefono}`).catch((err) => {
-                  console.error('Error al abrir teléfono:', err);
-                  if (Platform.OS === 'web') {
-                    window.alert(`No se pudo abrir el teléfono. Número: ${patient.telefono}`);
-                  } else {
-                    Alert.alert('Error', `No se pudo abrir el teléfono. Número: ${patient.telefono}`);
-                  }
-                });
+                Linking.openURL(`tel:${patient.telefono}`);
               } else {
-                const message = 'El paciente no tiene número de teléfono ni contacto de emergencia registrado';
-                if (Platform.OS === 'web') {
-                  window.alert(message);
-                } else {
-                  Alert.alert('Información', message);
-                }
+                Alert.alert('Información', 'El paciente no tiene número de teléfono ni contacto de emergencia registrado');
               }
             }}
           >
