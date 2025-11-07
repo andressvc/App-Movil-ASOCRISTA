@@ -449,10 +449,38 @@ const PatientDetailScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
-              if (patient?.telefono) {
-                Linking.openURL(`tel:${patient.telefono}`);
+              // Llamar al contacto de emergencia
+              if (patient?.telefono_emergencia) {
+                Alert.alert(
+                  'Contacto de Emergencia',
+                  `¿Deseas llamar al contacto de emergencia?\n\nNombre: ${patient.contacto_emergencia || 'No especificado'}\nTeléfono: ${patient.telefono_emergencia}`,
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Llamar',
+                      onPress: () => {
+                        Linking.openURL(`tel:${patient.telefono_emergencia}`);
+                      }
+                    }
+                  ]
+                );
+              } else if (patient?.telefono) {
+                // Si no hay contacto de emergencia, usar el teléfono del paciente
+                Alert.alert(
+                  'Llamar al Paciente',
+                  `¿Deseas llamar al paciente?\n\nTeléfono: ${patient.telefono}`,
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Llamar',
+                      onPress: () => {
+                        Linking.openURL(`tel:${patient.telefono}`);
+                      }
+                    }
+                  ]
+                );
               } else {
-                Alert.alert('Información', 'El paciente no tiene número de teléfono registrado');
+                Alert.alert('Información', 'El paciente no tiene número de teléfono ni contacto de emergencia registrado');
               }
             }}
           >
@@ -461,7 +489,11 @@ const PatientDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.dangerButton]}
-            onPress={handleDeletePatient}
+            onPress={() => {
+              console.log('🔴 Botón eliminar presionado');
+              handleDeletePatient();
+            }}
+            activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={24} color={Colors.error} />
             <Text style={[styles.actionText, { color: Colors.error }]}>Eliminar</Text>

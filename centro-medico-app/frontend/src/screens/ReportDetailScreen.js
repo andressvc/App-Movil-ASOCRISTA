@@ -335,7 +335,14 @@ const ReportDetailScreen = ({ navigation, route }) => {
           <TouchableOpacity style={styles.iconButton} onPress={handleOpenPDF}>
             <Ionicons name="document-outline" size={22} color={Colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleDelete}>
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={() => {
+              console.log('🔴 Botón eliminar reporte presionado');
+              handleDelete();
+            }}
+            activeOpacity={0.7}
+          >
             <Ionicons name="trash-outline" size={22} color={Colors.error} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare}>

@@ -94,18 +94,49 @@ const ChangePasswordScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
+      console.log('🔐 Intentando cambiar contraseña...');
       const result = await changePassword(formData.currentPassword, formData.newPassword);
+      console.log('📥 Resultado de cambio de contraseña:', result);
       
-      if (result.success) {
+      if (result && result.success) {
         Alert.alert('Éxito', 'Contraseña actualizada correctamente', [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'OK', onPress: () => {
+              // Limpiar formulario
+              setFormData({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+              });
+              navigation.goBack();
+            }
+          }
         ]);
       } else {
-        Alert.alert('Error', result.message || 'No se pudo cambiar la contraseña');
+        const errorMessage = result?.message || 'No se pudo cambiar la contraseña';
+        console.error('❌ Error en cambio de contraseña:', errorMessage);
+        Alert.alert('Error', errorMessage);
       }
     } catch (error) {
-      console.error('Error changing password:', error);
-      Alert.alert('Error', 'Error al cambiar la contraseña');
+      console.error('❌ Error changing password:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      let errorMessage = 'Error al cambiar la contraseña';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        Alert.alert('Sesión Expirada', errorMessage, [
+          { text: 'OK', onPress: () => navigation.navigate('Login') }
+        ]);
+        return;
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response?.data?.message || 'La contraseña actual es incorrecta';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
