@@ -171,7 +171,7 @@ const generarPDFReporte = async (reporte, datos) => {
       const doc = new PDFDocument({
         size: 'A4',
         margins: {
-          top: 72,
+          top: 50,
           bottom: 72,
           left: 72,
           right: 72
@@ -193,108 +193,176 @@ const generarPDFReporte = async (reporte, datos) => {
         day: 'numeric'
       });
 
-      // Header con logo y título
-      try {
-        const logoPath = path.join(__dirname, '../../frontend/assets/asologo.png');
-        doc.image(logoPath, (595 - 100) / 2, doc.y, { width: 100 });
-        doc.moveDown(1.2);
-      } catch (e) {
-        // Si no hay logo, continuar con texto
+      // Posición inicial para el logo (arriba, centrado)
+      const logoY = 50;
+      const logoWidth = 120;
+      const logoX = (595 - logoWidth) / 2; // Centrar en página A4 (595pt de ancho)
+
+      // Intentar cargar el logo desde diferentes ubicaciones posibles
+      let logoLoaded = false;
+      const possibleLogoPaths = [
+        path.join(__dirname, '../../frontend/assets/asologo.png'),
+        path.join(__dirname, '../assets/asologo.png'),
+        path.join(__dirname, '../../assets/asologo.png'),
+        path.join(process.cwd(), 'frontend/assets/asologo.png'),
+        path.join(process.cwd(), 'assets/asologo.png')
+      ];
+
+      for (const logoPath of possibleLogoPaths) {
+        try {
+          if (require('fs').existsSync(logoPath)) {
+            doc.image(logoPath, logoX, logoY, { width: logoWidth, align: 'center' });
+            logoLoaded = true;
+            break;
+          }
+        } catch (e) {
+          // Continuar con el siguiente path
+        }
       }
 
-      // Header con título
-      doc.fontSize(24)
+      // Espacio prudencial después del logo (60pt = ~2cm)
+      const contentStartY = logoLoaded ? logoY + logoWidth + 60 : logoY + 40;
+
+      // Posicionar el cursor al inicio del contenido
+      doc.y = contentStartY;
+
+      // Header con título (más formal)
+      doc.fontSize(22)
+        .fillColor('#1a472a')
+        .font('Helvetica-Bold')
+        .text('CENTRO DE REHABILITACIÓN ASOCRISTA', { align: 'center' })
+        .moveDown(0.4);
+      
+      doc.fontSize(18)
         .fillColor('#2E7D32')
-        .text('Centro de Rehabilitación ASOCRISTA', { align: 'center' })
+        .font('Helvetica')
+        .text('REPORTE DIARIO DE ACTIVIDADES', { align: 'center' })
         .moveDown(0.5);
       
-      doc.fontSize(16)
+      doc.fontSize(12)
         .fillColor('#555555')
-        .text('Reporte Diario', { align: 'center' })
+        .text(fechaFormateada, { align: 'center' })
+        .moveDown(1.2);
+
+      // Línea divisoria más formal (doble línea)
+      const lineY = doc.y;
+      doc.strokeColor('#1a472a')
+        .lineWidth(1.5)
+        .moveTo(72, lineY)
+        .lineTo(522, lineY)
+        .stroke()
         .moveDown(0.3);
       
-      doc.fontSize(12)
-        .text(fechaFormateada, { align: 'center' })
-        .moveDown(1);
-
-      // Línea divisoria
       doc.strokeColor('#2E7D32')
-        .lineWidth(2)
+        .lineWidth(0.5)
         .moveTo(72, doc.y)
         .lineTo(522, doc.y)
         .stroke()
-        .moveDown(1.5);
+        .moveDown(1.8);
 
-      // Estadísticas en grid (2 columnas) estilo formal (sin bordes de color)
+      // Título de sección de estadísticas
+      doc.fontSize(14)
+        .fillColor('#1a472a')
+        .font('Helvetica-Bold')
+        .text('RESUMEN ESTADÍSTICO', { align: 'left' })
+        .moveDown(0.8);
+
+      // Estadísticas en grid (2 columnas) estilo formal
       const stats = [
-        { title: 'Pacientes Atendidos', value: reporte.total_pacientes },
-        { title: 'Total de Citas', value: reporte.total_citas },
-        { title: 'Citas Completadas', value: reporte.citas_completadas },
-        { title: 'Citas Canceladas', value: reporte.citas_canceladas },
-        { title: 'Total Ingresos', value: `Q ${parseFloat(reporte.total_ingresos).toFixed(2)}` },
-        { title: 'Total Egresos', value: `Q ${parseFloat(reporte.total_egresos).toFixed(2)}` },
-        { title: 'Balance Diario', value: `Q ${parseFloat(reporte.balance_diario).toFixed(2)}`, color: reporte.balance_diario >= 0 ? '#2E7D32' : '#dc3545' }
+        { title: 'Pacientes Atendidos', value: reporte.total_pacientes, icon: '👥' },
+        { title: 'Total de Citas', value: reporte.total_citas, icon: '📅' },
+        { title: 'Citas Completadas', value: reporte.citas_completadas, icon: '✅' },
+        { title: 'Citas Canceladas', value: reporte.citas_canceladas, icon: '❌' },
+        { title: 'Total Ingresos', value: `Q ${parseFloat(reporte.total_ingresos).toFixed(2)}`, icon: '💰' },
+        { title: 'Total Egresos', value: `Q ${parseFloat(reporte.total_egresos).toFixed(2)}`, icon: '💸' },
+        { title: 'Balance Diario', value: `Q ${parseFloat(reporte.balance_diario).toFixed(2)}`, color: reporte.balance_diario >= 0 ? '#1a472a' : '#8b0000', icon: '📊' }
       ];
 
       let x = 72;
       let y = doc.y;
-      const colWidth = 225;
-      const rowHeight = 60;
+      const colWidth = 220;
+      const rowHeight = 55;
       const startY = y;
+      const gap = 10;
 
       stats.forEach((stat, index) => {
         const col = index % 2;
         const row = Math.floor(index / 2);
-        const currentX = x + (col * colWidth);
+        const currentX = x + (col * (colWidth + gap));
         const currentY = startY + (row * rowHeight);
 
-        // Fondo del card simple
-        doc.rect(currentX, currentY, colWidth - 10, rowHeight - 10)
-          .fillColor('#f6f7f9')
+        // Borde del card (más formal)
+        doc.rect(currentX, currentY, colWidth, rowHeight)
+          .strokeColor('#d0d0d0')
+          .lineWidth(0.5)
+          .stroke();
+
+        // Fondo sutil
+        doc.rect(currentX + 1, currentY + 1, colWidth - 2, rowHeight - 2)
+          .fillColor('#fafafa')
           .fill();
 
-        // Texto
-        doc.fillColor('#333333')
-          .fontSize(10)
-          .text(stat.title.toUpperCase(), currentX + 10, currentY + 5, {
-            width: colWidth - 20,
+        // Título
+        doc.fillColor('#555555')
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .text(stat.title.toUpperCase(), currentX + 12, currentY + 8, {
+            width: colWidth - 24,
             align: 'left'
           });
 
-        doc.fontSize(18)
-          .fillColor(stat.color || '#2E7D32')
-          .text(stat.value.toString(), currentX + 10, currentY + 25, {
-            width: colWidth - 20,
+        // Valor
+        doc.fontSize(16)
+          .font('Helvetica-Bold')
+          .fillColor(stat.color || '#1a472a')
+          .text(stat.value.toString(), currentX + 12, currentY + 22, {
+            width: colWidth - 24,
             align: 'left'
           });
       });
 
-      doc.moveDown(2);
+      doc.y = startY + (Math.ceil(stats.length / 2) * rowHeight);
+      doc.moveDown(1.5);
 
       // Citas del día
-      doc.fontSize(16)
-        .fillColor('#2E7D32')
-        .text('Citas del Día', { underline: true })
-        .moveDown(0.5);
+      doc.fontSize(14)
+        .fillColor('#1a472a')
+        .font('Helvetica-Bold')
+        .text('CITAS DEL DÍA', { align: 'left' })
+        .moveDown(0.8);
 
       if (datos.citas && datos.citas.length > 0) {
-        // Headers de tabla
-        doc.fontSize(10)
+        // Headers de tabla (más formal)
+        const tableHeaderY = doc.y;
+        doc.rect(72, tableHeaderY, 450, 22)
+          .fillColor('#1a472a')
+          .fill();
+        
+        doc.fontSize(9)
+          .font('Helvetica-Bold')
           .fillColor('#FFFFFF')
-          .rect(72, doc.y, 450, 20)
-          .fillColor('#2E7D32')
-          .fill()
-          .fillColor('#FFFFFF')
-          .text('Hora', 75, doc.y + 5, { width: 80 })
-          .text('Paciente', 155, doc.y + 5, { width: 150 })
-          .text('Tipo', 305, doc.y + 5, { width: 100 })
-          .text('Estado', 405, doc.y + 5, { width: 115 });
+          .text('HORA', 75, tableHeaderY + 7, { width: 80 })
+          .text('PACIENTE', 155, tableHeaderY + 7, { width: 150 })
+          .text('TIPO', 305, tableHeaderY + 7, { width: 100 })
+          .text('ESTADO', 405, tableHeaderY + 7, { width: 115 });
 
-        let tableY = doc.y + 20;
+        let tableY = tableHeaderY + 22;
         datos.citas.forEach((cita, index) => {
           if (tableY > 700) {
             doc.addPage();
             tableY = 72;
+            // Redibujar header en nueva página
+            doc.rect(72, tableY, 450, 22)
+              .fillColor('#1a472a')
+              .fill();
+            doc.fontSize(9)
+              .font('Helvetica-Bold')
+              .fillColor('#FFFFFF')
+              .text('HORA', 75, tableY + 7, { width: 80 })
+              .text('PACIENTE', 155, tableY + 7, { width: 150 })
+              .text('TIPO', 305, tableY + 7, { width: 100 })
+              .text('ESTADO', 405, tableY + 7, { width: 115 });
+            tableY += 22;
           }
 
           const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
@@ -302,17 +370,25 @@ const generarPDFReporte = async (reporte, datos) => {
             .fillColor(bgColor)
             .fill();
 
+          // Borde sutil
+          doc.rect(72, tableY, 450, 20)
+            .strokeColor('#e0e0e0')
+            .lineWidth(0.3)
+            .stroke();
+
           doc.fillColor('#333333')
             .fontSize(9)
-            .text(`${cita.hora_inicio || ''} - ${cita.hora_fin || ''}`, 75, tableY + 5, { width: 80 })
-            .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 155, tableY + 5, { width: 150 })
-            .text((cita.tipo || '').replace('_', ' ').toUpperCase(), 305, tableY + 5, { width: 100 });
+            .font('Helvetica')
+            .text(`${cita.hora_inicio || ''} - ${cita.hora_fin || ''}`, 75, tableY + 6, { width: 80 })
+            .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 155, tableY + 6, { width: 150 })
+            .text((cita.tipo || '').replace('_', ' ').toUpperCase(), 305, tableY + 6, { width: 100 });
 
           // Color según estado
-          const estadoColor = cita.estado === 'completada' ? '#28a745' : 
-                             cita.estado === 'cancelada' ? '#dc3545' : '#ffc107';
-          doc.fillColor(estadoColor)
-            .text((cita.estado || 'programada').replace('_', ' ').toUpperCase(), 405, tableY + 5, { width: 115 });
+          const estadoColor = cita.estado === 'completada' ? '#1a472a' : 
+                             cita.estado === 'cancelada' ? '#8b0000' : '#856404';
+          doc.font('Helvetica-Bold')
+            .fillColor(estadoColor)
+            .text((cita.estado || 'programada').replace('_', ' ').toUpperCase(), 405, tableY + 6, { width: 115 });
 
           tableY += 20;
         });
@@ -326,29 +402,44 @@ const generarPDFReporte = async (reporte, datos) => {
       doc.moveDown(1);
 
       // Movimientos financieros
-      doc.fontSize(16)
-        .fillColor('#2E7D32')
-        .text('Movimientos Financieros', { underline: true })
-        .moveDown(0.5);
+      doc.fontSize(14)
+        .fillColor('#1a472a')
+        .font('Helvetica-Bold')
+        .text('MOVIMIENTOS FINANCIEROS', { align: 'left' })
+        .moveDown(0.8);
 
       if (datos.movimientos && datos.movimientos.length > 0) {
-        // Headers de tabla
-        doc.fontSize(10)
+        // Headers de tabla (más formal)
+        const tableHeaderY = doc.y;
+        doc.rect(72, tableHeaderY, 450, 22)
+          .fillColor('#1a472a')
+          .fill();
+        
+        doc.fontSize(9)
+          .font('Helvetica-Bold')
           .fillColor('#FFFFFF')
-          .rect(72, doc.y, 450, 20)
-          .fillColor('#2E7D32')
-          .fill()
-          .fillColor('#FFFFFF')
-          .text('Tipo', 75, doc.y + 5, { width: 80 })
-          .text('Descripción', 155, doc.y + 5, { width: 200 })
-          .text('Monto', 355, doc.y + 5, { width: 80 })
-          .text('Método', 435, doc.y + 5, { width: 85 });
+          .text('TIPO', 75, tableHeaderY + 7, { width: 80 })
+          .text('DESCRIPCIÓN', 155, tableHeaderY + 7, { width: 200 })
+          .text('MONTO', 355, tableHeaderY + 7, { width: 80 })
+          .text('MÉTODO', 435, tableHeaderY + 7, { width: 85 });
 
-        let tableY = doc.y + 20;
+        let tableY = tableHeaderY + 22;
         datos.movimientos.forEach((mov, index) => {
           if (tableY > 700) {
             doc.addPage();
             tableY = 72;
+            // Redibujar header en nueva página
+            doc.rect(72, tableY, 450, 22)
+              .fillColor('#1a472a')
+              .fill();
+            doc.fontSize(9)
+              .font('Helvetica-Bold')
+              .fillColor('#FFFFFF')
+              .text('TIPO', 75, tableY + 7, { width: 80 })
+              .text('DESCRIPCIÓN', 155, tableY + 7, { width: 200 })
+              .text('MONTO', 355, tableY + 7, { width: 80 })
+              .text('MÉTODO', 435, tableY + 7, { width: 85 });
+            tableY += 22;
           }
 
           const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
@@ -356,14 +447,23 @@ const generarPDFReporte = async (reporte, datos) => {
             .fillColor(bgColor)
             .fill();
 
+          // Borde sutil
+          doc.rect(72, tableY, 450, 20)
+            .strokeColor('#e0e0e0')
+            .lineWidth(0.3)
+            .stroke();
+
           doc.fillColor('#333333')
             .fontSize(9)
-            .text((mov.tipo || '').toUpperCase(), 75, tableY + 5, { width: 80 })
-            .text(mov.descripcion || 'Sin descripción', 155, tableY + 5, { width: 200 })
-            .fillColor(mov.tipo === 'ingreso' ? '#28a745' : '#dc3545')
-            .text(`Q ${parseFloat(mov.monto || 0).toFixed(2)}`, 355, tableY + 5, { width: 80 })
+            .font('Helvetica')
+            .text((mov.tipo || '').toUpperCase(), 75, tableY + 6, { width: 80 })
+            .text(mov.descripcion || 'Sin descripción', 155, tableY + 6, { width: 200 })
+            .font('Helvetica-Bold')
+            .fillColor(mov.tipo === 'ingreso' ? '#1a472a' : '#8b0000')
+            .text(`Q ${parseFloat(mov.monto || 0).toFixed(2)}`, 355, tableY + 6, { width: 80 })
+            .font('Helvetica')
             .fillColor('#333333')
-            .text(mov.metodo_pago || 'N/A', 435, tableY + 5, { width: 85 });
+            .text(mov.metodo_pago || 'N/A', 435, tableY + 6, { width: 85 });
 
           tableY += 20;
         });
@@ -374,13 +474,27 @@ const generarPDFReporte = async (reporte, datos) => {
           .text('No hay movimientos financieros registrados para este día', { align: 'center' });
       }
 
-      // Footer
+      // Footer más formal
       doc.moveDown(2);
-      doc.fontSize(10)
+      const footerY = doc.page.height - 100;
+      doc.strokeColor('#d0d0d0')
+        .lineWidth(0.5)
+        .moveTo(72, footerY)
+        .lineTo(522, footerY)
+        .stroke();
+      
+      doc.fontSize(9)
         .fillColor('#666666')
-        .text(`Reporte generado automáticamente el ${new Date().toLocaleString('es-ES')}`, { align: 'center' })
-        .moveDown(0.3)
-        .text('Centro Médico ASOCRISTA - Sistema de Gestión', { align: 'center' });
+        .font('Helvetica')
+        .text(`Reporte generado automáticamente el ${new Date().toLocaleString('es-ES')}`, 72, footerY + 10, {
+          width: 450,
+          align: 'center'
+        })
+        .font('Helvetica-Bold')
+        .text('Centro de Rehabilitación ASOCRISTA - Sistema de Gestión', 72, footerY + 25, {
+          width: 450,
+          align: 'center'
+        });
 
       doc.end();
 

@@ -130,16 +130,40 @@ const PatientDetailScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('🗑️ Intentando eliminar paciente ID:', id);
               const response = await patientService.deletePatient(id);
-              if (response.success) {
-                Alert.alert('Éxito', 'Paciente eliminado correctamente');
-                navigation.goBack();
+              console.log('📥 Respuesta de eliminación:', response);
+              
+              if (response && response.success) {
+                Alert.alert('Éxito', 'Paciente eliminado correctamente', [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
               } else {
-                Alert.alert('Error', response.message || 'No se pudo eliminar el paciente');
+                Alert.alert('Error', response?.message || 'No se pudo eliminar el paciente');
               }
             } catch (error) {
-              console.error('Error deleting patient:', error);
-              Alert.alert('Error', 'No se pudo eliminar el paciente');
+              console.error('❌ Error deleting patient:', error);
+              console.error('Error details:', error.response?.data || error.message);
+              
+              let errorMessage = 'No se pudo eliminar el paciente';
+              
+              if (error.response?.status === 401) {
+                errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+                Alert.alert('Sesión Expirada', errorMessage, [
+                  { text: 'OK', onPress: () => navigation.navigate('Login') }
+                ]);
+                return;
+              } else if (error.response?.status === 404) {
+                errorMessage = 'Paciente no encontrado';
+              } else if (error.response?.status === 403) {
+                errorMessage = 'No tienes permisos para eliminar este paciente';
+              } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+              } else if (error.message) {
+                errorMessage = error.message;
+              }
+              
+              Alert.alert('Error', errorMessage);
             }
           },
         },

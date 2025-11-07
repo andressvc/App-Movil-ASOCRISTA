@@ -228,26 +228,59 @@ const ReportDetailScreen = ({ navigation, route }) => {
 
   const handleDelete = async () => {
     try {
-      if (!report?.id) return;
-      Alert.alert('Eliminar', '¿Deseas eliminar este reporte?', [
+      if (!report?.id) {
+        Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
+        return;
+      }
+      
+      Alert.alert('Eliminar Reporte', '¿Deseas eliminar este reporte? Esta acción no se puede deshacer.', [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        { 
+          text: 'Eliminar', 
+          style: 'destructive', 
+          onPress: async () => {
             try {
+              console.log('🗑️ Intentando eliminar reporte ID:', report.id);
               const resp = await reportService.deleteReport(report.id);
-              if (resp.success) {
-                Alert.alert('Eliminado', 'Reporte eliminado');
-                navigation.goBack();
+              console.log('📥 Respuesta de eliminación:', resp);
+              
+              if (resp && resp.success) {
+                Alert.alert('Éxito', 'Reporte eliminado correctamente', [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
               } else {
-                Alert.alert('Error', resp.message || 'No se pudo eliminar');
+                Alert.alert('Error', resp?.message || 'No se pudo eliminar el reporte');
               }
             } catch (e) {
-              console.error('Delete report error:', e);
-              Alert.alert('Error', 'No se pudo eliminar el reporte');
+              console.error('❌ Delete report error:', e);
+              console.error('Error details:', e.response?.data || e.message);
+              
+              let errorMessage = 'No se pudo eliminar el reporte';
+              
+              if (e.response?.status === 401) {
+                errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+                Alert.alert('Sesión Expirada', errorMessage, [
+                  { text: 'OK', onPress: () => navigation.navigate('Login') }
+                ]);
+                return;
+              } else if (e.response?.status === 404) {
+                errorMessage = 'Reporte no encontrado';
+              } else if (e.response?.status === 403) {
+                errorMessage = 'No tienes permisos para eliminar este reporte';
+              } else if (e.response?.data?.message) {
+                errorMessage = e.response.data.message;
+              } else if (e.message) {
+                errorMessage = e.message;
+              }
+              
+              Alert.alert('Error', errorMessage);
             }
-          } }
+          } 
+        }
       ]);
     } catch (e) {
-      console.error('Error deleting:', e);
+      console.error('❌ Error in handleDelete:', e);
+      Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
