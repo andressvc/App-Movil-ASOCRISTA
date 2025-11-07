@@ -11,6 +11,7 @@ import {
   Share,
   Platform,
   Linking,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
@@ -22,6 +23,8 @@ const ReportDetailScreen = ({ navigation, route }) => {
   const { id } = route.params;
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadReport = async () => {
     try {
@@ -231,57 +234,52 @@ const ReportDetailScreen = ({ navigation, route }) => {
       Alert.alert('Error', 'No se puede eliminar el reporte: ID no válido');
       return;
     }
+    setShowDeleteModal(true);
+  };
 
-    Alert.alert(
-      'Eliminar Reporte',
-      '¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.',
-      [
-        {
-          text: 'Volver',
-          style: 'cancel'
-        },
-        {
-          text: 'Continuar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const resp = await reportService.deleteReport(report.id);
-              
-              if (resp && resp.success) {
-                Alert.alert('Éxito', 'Reporte eliminado correctamente', [
-                  { 
-                    text: 'OK', 
-                    onPress: () => navigation.goBack()
-                  }
-                ]);
-              } else {
-                Alert.alert('Error', resp?.message || 'No se pudo eliminar el reporte');
-              }
-            } catch (e) {
-              let errorMessage = 'No se pudo eliminar el reporte';
-              
-              if (e.response?.status === 401) {
-                errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-                Alert.alert('Sesión Expirada', errorMessage, [
-                  { text: 'OK', onPress: () => navigation.navigate('Login') }
-                ]);
-                return;
-              } else if (e.response?.status === 404) {
-                errorMessage = 'Reporte no encontrado';
-              } else if (e.response?.status === 403) {
-                errorMessage = 'No tienes permisos para eliminar este reporte';
-              } else if (e.response?.data?.message) {
-                errorMessage = e.response.data.message;
-              } else if (e.message) {
-                errorMessage = e.message;
-              }
-              
-              Alert.alert('Error', errorMessage);
-            }
+  const confirmDelete = async () => {
+    if (!report?.id) return;
+    
+    try {
+      setDeleting(true);
+      const resp = await reportService.deleteReport(report.id);
+      
+      if (resp && resp.success) {
+        setShowDeleteModal(false);
+        Alert.alert('Éxito', 'Reporte eliminado correctamente', [
+          { 
+            text: 'OK', 
+            onPress: () => navigation.goBack()
           }
-        }
-      ]
-    );
+        ]);
+      } else {
+        setShowDeleteModal(false);
+        Alert.alert('Error', resp?.message || 'No se pudo eliminar el reporte');
+      }
+    } catch (e) {
+      setShowDeleteModal(false);
+      let errorMessage = 'No se pudo eliminar el reporte';
+      
+      if (e.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        Alert.alert('Sesión Expirada', errorMessage, [
+          { text: 'OK', onPress: () => navigation.navigate('Login') }
+        ]);
+        return;
+      } else if (e.response?.status === 404) {
+        errorMessage = 'Reporte no encontrado';
+      } else if (e.response?.status === 403) {
+        errorMessage = 'No tienes permisos para eliminar este reporte';
+      } else if (e.response?.data?.message) {
+        errorMessage = e.response.data.message;
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const StatCard = ({ title, value, icon, color, subtitle }) => (
@@ -442,6 +440,49 @@ const ReportDetailScreen = ({ navigation, route }) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => !deleting && setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={48} color={Colors.error} />
+              <Text style={styles.deleteModalTitle}>Eliminar Reporte</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              ¿Estás seguro de que deseas eliminar este reporte? Esta acción no se puede deshacer.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.deleteModalButtonCancel]}
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deleting}
+              >
+                <Text style={styles.deleteModalButtonCancelText}>Volver</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.deleteModalButtonConfirm]}
+                onPress={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={styles.deleteModalButtonConfirmText}>Continuar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -624,6 +665,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.text.secondary,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  deleteModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.lg,
+    width: '100%',
+    maxWidth: 400,
+    padding: 24,
+    ...Theme.shadows.lg,
+  },
+  deleteModalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  deleteModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.text.primary,
+    marginTop: 12,
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: Theme.borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteModalButtonCancel: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  deleteModalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text.primary,
+  },
+  deleteModalButtonConfirm: {
+    backgroundColor: Colors.error,
+  },
+  deleteModalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
 
