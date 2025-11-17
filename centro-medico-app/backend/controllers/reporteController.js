@@ -162,6 +162,18 @@ const generarPDFReporte = async (reporte, datos) => {
         }
       });
 
+      // Paleta de colores
+      const colors = {
+        primary: '#1E88E5',     // Azul principal
+        secondary: '#42A5F5',   // Azul secundario
+        lightBg: '#E3F2FD',     // Fondo celeste claro
+        lightText: '#546E7A',   // Texto gris
+        darkText: '#263238',    // Texto oscuro
+        success: '#43A047',     // Verde para éxito
+        danger: '#E53935',      // Rojo para errores
+        border: '#BBDEFB'       // Borde celeste
+      };
+
       const buffers = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => {
@@ -210,34 +222,34 @@ const generarPDFReporte = async (reporte, datos) => {
       // Posicionar el cursor al inicio del contenido
       doc.y = contentStartY;
 
-      // Header con título (más formal)
+      // Header con título
       doc.fontSize(22)
-        .fillColor('#1a472a')
+        .fillColor(colors.primary)
         .font('Helvetica-Bold')
         .text('CENTRO DE REHABILITACIÓN ASOCRISTA', { align: 'center' })
         .moveDown(0.4);
       
       doc.fontSize(18)
-        .fillColor('#2E7D32')
+        .fillColor(colors.secondary)
         .font('Helvetica')
         .text('REPORTE DIARIO DE ACTIVIDADES', { align: 'center' })
         .moveDown(0.5);
       
       doc.fontSize(12)
-        .fillColor('#555555')
+        .fillColor(colors.lightText)
         .text(fechaFormateada, { align: 'center' })
         .moveDown(1.2);
 
-      // Línea divisoria más formal (doble línea)
+      // Línea divisoria
       const lineY = doc.y;
-      doc.strokeColor('#1a472a')
+      doc.strokeColor(colors.primary)
         .lineWidth(1.5)
         .moveTo(72, lineY)
         .lineTo(522, lineY)
         .stroke()
         .moveDown(0.3);
       
-      doc.strokeColor('#2E7D32')
+      doc.strokeColor(colors.secondary)
         .lineWidth(0.5)
         .moveTo(72, doc.y)
         .lineTo(522, doc.y)
@@ -246,12 +258,12 @@ const generarPDFReporte = async (reporte, datos) => {
 
       // Título de sección de estadísticas
       doc.fontSize(14)
-        .fillColor('#1a472a')
+        .fillColor(colors.primary)
         .font('Helvetica-Bold')
         .text('RESUMEN ESTADÍSTICO', { align: 'left' })
         .moveDown(0.8);
 
-      // Estadísticas en grid (2 columnas) estilo formal
+      // Estadísticas en grid (2 columnas)
       const stats = [
         { title: 'Pacientes Atendidos', value: reporte.total_pacientes, icon: '👥' },
         { title: 'Total de Citas', value: reporte.total_citas, icon: '📅' },
@@ -259,9 +271,15 @@ const generarPDFReporte = async (reporte, datos) => {
         { title: 'Citas Canceladas', value: reporte.citas_canceladas, icon: '❌' },
         { title: 'Total Ingresos', value: `Q ${parseFloat(reporte.total_ingresos).toFixed(2)}`, icon: '💰' },
         { title: 'Total Egresos', value: `Q ${parseFloat(reporte.total_egresos).toFixed(2)}`, icon: '💸' },
-        { title: 'Balance Diario', value: `Q ${parseFloat(reporte.balance_diario).toFixed(2)}`, color: reporte.balance_diario >= 0 ? '#1a472a' : '#8b0000', icon: '📊' }
+        { 
+          title: 'Balance Diario', 
+          value: `Q ${parseFloat(reporte.balance_diario).toFixed(2)}`, 
+          color: reporte.balance_diario >= 0 ? colors.success : colors.danger,
+          icon: '📊' 
+        }
       ];
 
+      // Mostrar estadísticas en tarjetas
       let x = 72;
       let y = doc.y;
       const colWidth = 220;
@@ -275,19 +293,19 @@ const generarPDFReporte = async (reporte, datos) => {
         const currentX = x + (col * (colWidth + gap));
         const currentY = startY + (row * rowHeight);
 
-        // Borde del card (más formal)
+        // Borde de la tarjeta
         doc.rect(currentX, currentY, colWidth, rowHeight)
-          .strokeColor('#d0d0d0')
+          .strokeColor(colors.border)
           .lineWidth(0.5)
           .stroke();
 
-        // Fondo sutil
+        // Fondo de la tarjeta
         doc.rect(currentX + 1, currentY + 1, colWidth - 2, rowHeight - 2)
-          .fillColor('#fafafa')
+          .fillColor(colors.lightBg)
           .fill();
 
         // Título
-        doc.fillColor('#555555')
+        doc.fillColor(colors.darkText)
           .fontSize(9)
           .font('Helvetica-Bold')
           .text(stat.title.toUpperCase(), currentX + 12, currentY + 8, {
@@ -298,7 +316,7 @@ const generarPDFReporte = async (reporte, datos) => {
         // Valor
         doc.fontSize(16)
           .font('Helvetica-Bold')
-          .fillColor(stat.color || '#1a472a')
+          .fillColor(stat.color || colors.primary)
           .text(stat.value.toString(), currentX + 12, currentY + 22, {
             width: colWidth - 24,
             align: 'left'
@@ -308,18 +326,125 @@ const generarPDFReporte = async (reporte, datos) => {
       doc.y = startY + (Math.ceil(stats.length / 2) * rowHeight);
       doc.moveDown(1.5);
 
-      // Citas del día
+      // ===== SECCIÓN DE PACIENTES ATENDIDOS =====
+      doc.addPage();
+      doc.y = 72; // Posición inicial en la nueva página
+
+      // Título de la sección
       doc.fontSize(14)
-        .fillColor('#1a472a')
+        .fillColor(colors.primary)
+        .font('Helvetica-Bold')
+        .text('PACIENTES ATENDIDOS', { align: 'left' })
+        .moveDown(0.8);
+
+      if (datos.citas && datos.citas.length > 0) {
+        // Filtrar solo citas con pacientes
+        const citasConPacientes = datos.citas.filter(cita => cita.paciente);
+        
+        if (citasConPacientes.length > 0) {
+          // Encabezado de la tabla
+          const tableHeaderY = doc.y;
+          doc.rect(72, tableHeaderY, 450, 22)
+            .fillColor(colors.primary)
+            .fill();
+          
+          doc.fontSize(9)
+            .font('Helvetica-Bold')
+            .fillColor('#FFFFFF')
+            .text('HORA', 75, tableHeaderY + 7, { width: 60 })
+            .text('PACIENTE', 135, tableHeaderY + 7, { width: 150 })
+            .text('EDAD', 285, tableHeaderY + 7, { width: 50 })
+            .text('TELÉFONO', 335, tableHeaderY + 7, { width: 100 })
+            .text('CONSULTA', 435, tableHeaderY + 7, { width: 85 });
+
+          let tableY = tableHeaderY + 22;
+          
+          // Ordenar citas por hora
+          citasConPacientes
+            .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''))
+            .forEach((cita, index) => {
+              if (tableY > 700) {
+                doc.addPage();
+                tableY = 72;
+                // Redibujar encabezado en nueva página
+                doc.rect(72, tableY, 450, 22)
+                  .fillColor(colors.primary)
+                  .fill();
+                doc.fontSize(9)
+                  .font('Helvetica-Bold')
+                  .fillColor('#FFFFFF')
+                  .text('HORA', 75, tableY + 7, { width: 60 })
+                  .text('PACIENTE', 135, tableY + 7, { width: 150 })
+                  .text('EDAD', 285, tableY + 7, { width: 50 })
+                  .text('TELÉFONO', 335, tableY + 7, { width: 100 })
+                  .text('CONSULTA', 435, tableY + 7, { width: 85 });
+                tableY += 22;
+              }
+
+              // Fondo de fila alternado
+              const bgColor = index % 2 === 0 ? '#FFFFFF' : colors.lightBg;
+              doc.rect(72, tableY, 450, 20)
+                .fillColor(bgColor)
+                .fill();
+
+              // Borde de la celda
+              doc.rect(72, tableY, 450, 20)
+                .strokeColor(colors.border)
+                .lineWidth(0.3)
+                .stroke();
+
+              // Calcular edad si hay fecha de nacimiento
+              let edad = 'N/A';
+              if (cita.paciente && cita.paciente.fecha_nacimiento) {
+                const nacimiento = new Date(cita.paciente.fecha_nacimiento);
+                const hoy = new Date();
+                let edadCalculada = hoy.getFullYear() - nacimiento.getFullYear();
+                const m = hoy.getMonth() - nacimiento.getMonth();
+                if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
+                  edadCalculada--;
+                }
+                edad = edadCalculada;
+              }
+
+              // Contenido de la celda
+              doc.fillColor(colors.darkText)
+                .fontSize(9)
+                .font('Helvetica')
+                .text(cita.hora_inicio || '--:--', 75, tableY + 6, { width: 60 })
+                .text(`${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}`, 135, tableY + 6, { width: 150 })
+                .text(edad.toString(), 285, tableY + 6, { width: 50, align: 'center' })
+                .text(cita.paciente.telefono || 'N/A', 335, tableY + 6, { width: 100 })
+                .text((cita.tipo_consulta || 'Consulta').substring(0, 12), 435, tableY + 6, { width: 85 });
+
+              tableY += 20;
+            });
+          doc.y = tableY;
+        } else {
+          doc.fontSize(10)
+            .fillColor(colors.lightText)
+            .text('No hay pacientes registrados para este día', { align: 'center' });
+        }
+      } else {
+        doc.fontSize(10)
+          .fillColor(colors.lightText)
+          .text('No hay citas registradas para este día', { align: 'center' });
+      }
+
+      // ===== SECCIÓN DE CITAS DEL DÍA =====
+      doc.addPage();
+      doc.y = 72; // Posición inicial en la nueva página
+
+      doc.fontSize(14)
+        .fillColor(colors.primary)
         .font('Helvetica-Bold')
         .text('CITAS DEL DÍA', { align: 'left' })
         .moveDown(0.8);
 
       if (datos.citas && datos.citas.length > 0) {
-        // Headers de tabla (más formal)
+        // Encabezado de la tabla
         const tableHeaderY = doc.y;
         doc.rect(72, tableHeaderY, 450, 22)
-          .fillColor('#1a472a')
+          .fillColor(colors.primary)
           .fill();
         
         doc.fontSize(9)
@@ -331,72 +456,80 @@ const generarPDFReporte = async (reporte, datos) => {
           .text('ESTADO', 405, tableHeaderY + 7, { width: 115 });
 
         let tableY = tableHeaderY + 22;
-        datos.citas.forEach((cita, index) => {
-          if (tableY > 700) {
-            doc.addPage();
-            tableY = 72;
-            // Redibujar header en nueva página
-            doc.rect(72, tableY, 450, 22)
-              .fillColor('#1a472a')
+        
+        // Ordenar citas por hora
+        datos.citas
+          .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''))
+          .forEach((cita, index) => {
+            if (tableY > 700) {
+              doc.addPage();
+              tableY = 72;
+              // Redibujar encabezado en nueva página
+              doc.rect(72, tableY, 450, 22)
+                .fillColor(colors.primary)
+                .fill();
+              doc.fontSize(9)
+                .font('Helvetica-Bold')
+                .fillColor('#FFFFFF')
+                .text('HORA', 75, tableY + 7, { width: 80 })
+                .text('PACIENTE', 155, tableY + 7, { width: 150 })
+                .text('TIPO', 305, tableY + 7, { width: 100 })
+                .text('ESTADO', 405, tableY + 7, { width: 115 });
+              tableY += 22;
+            }
+
+            // Fondo de fila alternado
+            const bgColor = index % 2 === 0 ? '#FFFFFF' : colors.lightBg;
+            doc.rect(72, tableY, 450, 20)
+              .fillColor(bgColor)
               .fill();
-            doc.fontSize(9)
-              .font('Helvetica-Bold')
-              .fillColor('#FFFFFF')
-              .text('HORA', 75, tableY + 7, { width: 80 })
-              .text('PACIENTE', 155, tableY + 7, { width: 150 })
-              .text('TIPO', 305, tableY + 7, { width: 100 })
-              .text('ESTADO', 405, tableY + 7, { width: 115 });
-            tableY += 22;
-          }
 
-          const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
-          doc.rect(72, tableY, 450, 20)
-            .fillColor(bgColor)
-            .fill();
+            // Borde de la celda
+            doc.rect(72, tableY, 450, 20)
+              .strokeColor(colors.border)
+              .lineWidth(0.3)
+              .stroke();
 
-          // Borde sutil
-          doc.rect(72, tableY, 450, 20)
-            .strokeColor('#e0e0e0')
-            .lineWidth(0.3)
-            .stroke();
+            // Contenido de la celda
+            doc.fillColor(colors.darkText)
+              .fontSize(9)
+              .font('Helvetica')
+              .text(`${cita.hora_inicio || ''} - ${cita.hora_fin || ''}`, 75, tableY + 6, { width: 80 })
+              .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 155, tableY + 6, { width: 150 })
+              .text((cita.tipo || '').replace('_', ' ').toUpperCase(), 305, tableY + 6, { width: 100 });
 
-          doc.fillColor('#333333')
-            .fontSize(9)
-            .font('Helvetica')
-            .text(`${cita.hora_inicio || ''} - ${cita.hora_fin || ''}`, 75, tableY + 6, { width: 80 })
-            .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 155, tableY + 6, { width: 150 })
-            .text((cita.tipo || '').replace('_', ' ').toUpperCase(), 305, tableY + 6, { width: 100 });
+            // Color según estado
+            const estadoColor = cita.estado === 'completada' ? colors.success : 
+                             cita.estado === 'cancelada' ? colors.danger : colors.warning;
+            
+            doc.font('Helvetica-Bold')
+              .fillColor(estadoColor)
+              .text((cita.estado || 'programada').replace('_', ' ').toUpperCase(), 405, tableY + 6, { width: 115 });
 
-          // Color según estado
-          const estadoColor = cita.estado === 'completada' ? '#1a472a' : 
-                             cita.estado === 'cancelada' ? '#8b0000' : '#856404';
-          doc.font('Helvetica-Bold')
-            .fillColor(estadoColor)
-            .text((cita.estado || 'programada').replace('_', ' ').toUpperCase(), 405, tableY + 6, { width: 115 });
-
-          tableY += 20;
-        });
+            tableY += 20;
+          });
         doc.y = tableY;
       } else {
         doc.fontSize(10)
-          .fillColor('#666666')
+          .fillColor(colors.lightText)
           .text('No hay citas registradas para este día', { align: 'center' });
       }
 
-      doc.moveDown(1);
+      // ===== SECCIÓN DE MOVIMIENTOS FINANCIEROS =====
+      doc.addPage();
+      doc.y = 72; // Posición inicial en la nueva página
 
-      // Movimientos financieros
       doc.fontSize(14)
-        .fillColor('#1a472a')
+        .fillColor(colors.primary)
         .font('Helvetica-Bold')
         .text('MOVIMIENTOS FINANCIEROS', { align: 'left' })
         .moveDown(0.8);
 
       if (datos.movimientos && datos.movimientos.length > 0) {
-        // Headers de tabla (más formal)
+        // Encabezado de la tabla
         const tableHeaderY = doc.y;
         doc.rect(72, tableHeaderY, 450, 22)
-          .fillColor('#1a472a')
+          .fillColor(colors.primary)
           .fill();
         
         doc.fontSize(9)
@@ -408,13 +541,14 @@ const generarPDFReporte = async (reporte, datos) => {
           .text('MÉTODO', 435, tableHeaderY + 7, { width: 85 });
 
         let tableY = tableHeaderY + 22;
+        
         datos.movimientos.forEach((mov, index) => {
           if (tableY > 700) {
             doc.addPage();
             tableY = 72;
-            // Redibujar header en nueva página
+            // Redibujar encabezado en nueva página
             doc.rect(72, tableY, 450, 22)
-              .fillColor('#1a472a')
+              .fillColor(colors.primary)
               .fill();
             doc.fontSize(9)
               .font('Helvetica-Bold')
@@ -426,27 +560,29 @@ const generarPDFReporte = async (reporte, datos) => {
             tableY += 22;
           }
 
-          const bgColor = index % 2 === 0 ? '#FFFFFF' : '#f8f9fa';
+          // Fondo de fila alternado
+          const bgColor = index % 2 === 0 ? '#FFFFFF' : colors.lightBg;
           doc.rect(72, tableY, 450, 20)
             .fillColor(bgColor)
             .fill();
 
-          // Borde sutil
+          // Borde de la celda
           doc.rect(72, tableY, 450, 20)
-            .strokeColor('#e0e0e0')
+            .strokeColor(colors.border)
             .lineWidth(0.3)
             .stroke();
 
-          doc.fillColor('#333333')
+          // Contenido de la celda
+          doc.fillColor(colors.darkText)
             .fontSize(9)
             .font('Helvetica')
             .text((mov.tipo || '').toUpperCase(), 75, tableY + 6, { width: 80 })
             .text(mov.descripcion || 'Sin descripción', 155, tableY + 6, { width: 200 })
             .font('Helvetica-Bold')
-            .fillColor(mov.tipo === 'ingreso' ? '#1a472a' : '#8b0000')
+            .fillColor(mov.tipo === 'ingreso' ? colors.success : colors.danger)
             .text(`Q ${parseFloat(mov.monto || 0).toFixed(2)}`, 355, tableY + 6, { width: 80 })
             .font('Helvetica')
-            .fillColor('#333333')
+            .fillColor(colors.darkText)
             .text(mov.metodo_pago || 'N/A', 435, tableY + 6, { width: 85 });
 
           tableY += 20;
@@ -454,21 +590,21 @@ const generarPDFReporte = async (reporte, datos) => {
         doc.y = tableY;
       } else {
         doc.fontSize(10)
-          .fillColor('#666666')
+          .fillColor(colors.lightText)
           .text('No hay movimientos financieros registrados para este día', { align: 'center' });
       }
 
-      // Footer más formal
+      // Pie de página
       doc.moveDown(2);
       const footerY = doc.page.height - 100;
-      doc.strokeColor('#d0d0d0')
+      doc.strokeColor(colors.border)
         .lineWidth(0.5)
         .moveTo(72, footerY)
         .lineTo(522, footerY)
         .stroke();
       
       doc.fontSize(9)
-        .fillColor('#666666')
+        .fillColor(colors.lightText)
         .font('Helvetica')
         .text(`Reporte generado automáticamente el ${new Date().toLocaleString('es-ES')}`, 72, footerY + 10, {
           width: 450,
@@ -477,7 +613,8 @@ const generarPDFReporte = async (reporte, datos) => {
         .font('Helvetica-Bold')
         .text('Centro de Rehabilitación ASOCRISTA - Sistema de Gestión', 72, footerY + 25, {
           width: 450,
-          align: 'center'
+          align: 'center',
+          color: colors.primary
         });
 
       doc.end();
