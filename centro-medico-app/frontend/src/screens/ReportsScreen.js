@@ -134,39 +134,41 @@ const ReportsScreen = ({ navigation }) => {
   const generateReport = async () => {
     try {
       setGenerating(true);
-      console.log('ReportsScreen: Generando reporte para fecha:', selectedDate);
       const response = await reportService.generateDailyReport(selectedDate);
-      console.log('ReportsScreen: Respuesta de generación:', response);
       
       if (response.success) {
         // Cerrar modal de generar reporte
         setShowGenerateModal(false);
-        // Recargar lista para mostrar el nuevo reporte
-        await loadReports();
-        // Mostrar alerta de éxito
-        setShowSuccessAlert(true);
-        // Cerrar automáticamente después de 2 segundos
+        setGenerating(false);
+        
+        // Agregar el nuevo reporte a la lista directamente
+        const nuevoReporte = response.data?.reporte;
+        if (nuevoReporte) {
+          setReports(prevReports => [nuevoReporte, ...prevReports]);
+        } else {
+          // Si no viene en la respuesta, recargar
+          loadReports();
+        }
+        
+        // Mostrar alerta de éxito después de un pequeño delay para asegurar que se renderice
         setTimeout(() => {
-          setShowSuccessAlert(false);
-        }, 2000);
+          setShowSuccessAlert(true);
+          // Cerrar automáticamente después de 2 segundos
+          setTimeout(() => {
+            setShowSuccessAlert(false);
+          }, 2000);
+        }, 100);
       } else {
-        console.log('ReportsScreen: Error en respuesta:', response.message);
         Alert.alert('Error', response.message || 'No se pudo generar el reporte');
       }
     } catch (error) {
-      console.error('ReportsScreen: Error generando reporte:', error);
+      console.error('Error generando reporte:', error);
       
-      // Si es error 401, significa que no está autenticado
       if (error.response?.status === 401) {
         Alert.alert(
           'Sesión Expirada', 
           'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login')
-            }
-          ]
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         );
       } else {
         Alert.alert('Error', 'No se pudo generar el reporte. Intenta nuevamente.');
@@ -426,7 +428,7 @@ const ReportsScreen = ({ navigation }) => {
       >
         <View style={styles.successModalOverlay}>
           <View style={styles.successModalContent}>
-            <Text style={styles.successModalTitle}>Reporte generado exitosamente</Text>
+            <Text style={styles.successModalTitle}>Generado</Text>
             <TouchableOpacity
               style={styles.successModalButton}
               onPress={() => setShowSuccessAlert(false)}
