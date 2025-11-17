@@ -114,7 +114,8 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
       model: Paciente,
       as: 'paciente',
       attributes: ['id', 'nombre', 'apellido'],
-      where: { activo: true, usuario_id }
+      where: { activo: true },
+      required: false
     }]
   });
 

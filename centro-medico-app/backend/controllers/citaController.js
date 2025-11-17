@@ -153,12 +153,14 @@ const obtenerCitas = async (req, res) => {
           model: Paciente,
           as: 'paciente',
           attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono'],
-          where: { activo: true, usuario_id: req.usuario.id }
+          where: { activo: true },
+          required: false
         },
         {
           model: User,
           as: 'usuario',
-          attributes: ['id', 'nombre', 'rol']
+          attributes: ['id', 'nombre', 'rol'],
+          required: false
         }
       ],
       limit: parseInt(limit),
@@ -247,12 +249,14 @@ const obtenerCitasDelDia = async (req, res) => {
           model: Paciente,
           as: 'paciente',
           attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono'],
-          where: { activo: true, usuario_id: req.usuario.id }
+          where: { activo: true },
+          required: false
         },
         {
           model: User,
           as: 'usuario',
-          attributes: ['id', 'nombre']
+          attributes: ['id', 'nombre'],
+          required: false
         }
       ],
       order: [['hora_inicio', 'ASC']]

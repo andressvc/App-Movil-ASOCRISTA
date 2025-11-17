@@ -28,7 +28,8 @@ const obtenerResumen = async (req, res) => {
         include: [{
           model: Paciente,
           as: 'paciente',
-          attributes: ['id', 'nombre', 'apellido', 'telefono']
+          attributes: ['id', 'nombre', 'apellido', 'telefono'],
+          required: false
         }],
         order: [['hora_inicio', 'ASC']]
       }),
@@ -56,7 +57,8 @@ const obtenerResumen = async (req, res) => {
         include: [{
           model: Paciente,
           as: 'paciente',
-          attributes: ['id', 'nombre', 'apellido']
+          attributes: ['id', 'nombre', 'apellido'],
+          required: false
         }],
         order: [['fecha', 'ASC'], ['hora_inicio', 'ASC']],
         limit: 10
@@ -70,7 +72,8 @@ const obtenerResumen = async (req, res) => {
         include: [{
           model: Paciente,
           as: 'paciente',
-          attributes: ['id', 'nombre', 'apellido']
+          attributes: ['id', 'nombre', 'apellido'],
+          required: false
         }]
       })
     ]);
@@ -266,7 +269,8 @@ const obtenerEstadisticas = async (req, res) => {
         include: [{
           model: Paciente,
           as: 'paciente',
-          attributes: ['id', 'nombre', 'apellido']
+          attributes: ['id', 'nombre', 'apellido'],
+          required: false
         }]
       }),
       MovimientoFinanciero.findAll({

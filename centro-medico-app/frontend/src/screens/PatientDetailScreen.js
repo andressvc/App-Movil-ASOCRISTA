@@ -209,7 +209,7 @@ const PatientDetailScreen = ({ route, navigation }) => {
   };
 
   const StatCard = ({ title, value, icon, color, onPress }) => (
-    <TouchableOpacity style={[styles.statCard, { borderLeftColor: color }]} onPress={onPress}>
+    <TouchableOpacity style={styles.statCard} onPress={onPress}>
       <View style={styles.statContent}>
         <View style={styles.statLeft}>
           <Text style={styles.statTitle}>{title}</Text>
@@ -816,7 +816,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     width: '48%',
-    borderLeftWidth: 4,
     ...Theme.shadows.sm,
   },
   statContent: {

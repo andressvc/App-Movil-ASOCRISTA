@@ -4,6 +4,15 @@ const { User } = require('../models');
 
 const authMiddleware = async (req, res, next) => {
   try {
+    // Verificar que JWT_SECRET esté configurado
+    if (!process.env.JWT_SECRET) {
+      console.error('ERROR CRÍTICO: JWT_SECRET no está configurado en las variables de entorno');
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Error de configuración del servidor' 
+      });
+    }
+
     // Obtener token del header o query string (para móvil)
     let token = req.header('Authorization')?.replace('Bearer ', '');
     
@@ -20,7 +29,24 @@ const authMiddleware = async (req, res, next) => {
     }
 
     // Verificar token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Token expirado. Por favor, inicia sesión nuevamente.' 
+        });
+      }
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Token inválido.' 
+        });
+      }
+      throw jwtError;
+    }
     
     // Buscar usuario
     const usuario = await User.findByPk(decoded.id, {
@@ -30,7 +56,7 @@ const authMiddleware = async (req, res, next) => {
     if (!usuario) {
       return res.status(401).json({ 
         success: false, 
-        message: 'Token inválido.' 
+        message: 'Usuario no encontrado.' 
       });
     }
 
@@ -46,9 +72,10 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Error en autenticación:', error);
+    console.error('Error stack:', error.stack);
     res.status(401).json({ 
       success: false, 
-      message: 'Token inválido.' 
+      message: 'Error de autenticación. Por favor, inicia sesión nuevamente.' 
     });
   }
 };
