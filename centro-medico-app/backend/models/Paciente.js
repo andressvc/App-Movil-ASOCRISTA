@@ -50,6 +50,14 @@ const Paciente = sequelize.define('Paciente', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  usuario_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'usuarios',
+      key: 'id'
+    }
+  },
   activo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true

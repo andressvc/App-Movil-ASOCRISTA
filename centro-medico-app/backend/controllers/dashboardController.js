@@ -17,14 +17,14 @@ const obtenerResumen = async (req, res) => {
       citasProximas,
       ultimosMovimientos
     ] = await Promise.all([
-      // Total de pacientes activos
+      // Total de pacientes activos del usuario
       Paciente.count({
-        where: { activo: true }
+        where: { activo: true, usuario_id }
       }),
 
-      // Citas del día actual
+      // Citas del día actual del usuario
       Cita.findAll({
-        where: { fecha: hoy },
+        where: { fecha: hoy, usuario_id },
         include: [{
           model: Paciente,
           as: 'paciente',
@@ -40,7 +40,7 @@ const obtenerResumen = async (req, res) => {
         limit: 10
       }),
 
-      // Próximas citas (próximos 7 días)
+      // Próximas citas (próximos 7 días) del usuario
       Cita.findAll({
         where: {
           fecha: {
@@ -50,6 +50,7 @@ const obtenerResumen = async (req, res) => {
               toISODateInTimeZone(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), DEFAULT_TZ)
             ]
           },
+          usuario_id,
           estado: { [Op.not]: 'cancelada' }
         },
         include: [{
@@ -110,7 +111,8 @@ const obtenerResumen = async (req, res) => {
               toISODateInTimeZone(inicioSemana, DEFAULT_TZ),
               toISODateInTimeZone(finSemana, DEFAULT_TZ)
             ]
-          }
+          },
+          usuario_id
         }
       }),
       MovimientoFinanciero.findAll({
@@ -258,7 +260,8 @@ const obtenerEstadisticas = async (req, res) => {
         where: {
           fecha: {
             [Op.between]: [fechaInicio, fechaFin]
-          }
+          },
+          usuario_id
         },
         include: [{
           model: Paciente,

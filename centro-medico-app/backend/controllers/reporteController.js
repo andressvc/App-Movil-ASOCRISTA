@@ -107,25 +107,27 @@ const generarReporteDiario = async (req, res) => {
 
 // Función auxiliar para obtener datos del día
 const obtenerDatosDelDia = async (fecha, usuario_id) => {
-  // Obtener pacientes únicos del día (según citas del usuario)
-  const pacientesDelDia = await Paciente.findAll({
-    include: [{
-      model: Cita,
-      as: 'citas',
-      where: { fecha, usuario_id },
-      attributes: []
-    }],
-    where: { activo: true }
-  });
-
   // Obtener citas del día del usuario
   const citasDelDia = await Cita.findAll({
     where: { fecha, usuario_id },
     include: [{
       model: Paciente,
       as: 'paciente',
-      attributes: ['id', 'nombre', 'apellido']
+      attributes: ['id', 'nombre', 'apellido'],
+      where: { activo: true, usuario_id }
     }]
+  });
+
+  // Obtener pacientes nuevos creados en el día (pacientes ingresados)
+  const totalPacientes = await Paciente.count({
+    where: { 
+      activo: true,
+      usuario_id: usuario_id,
+      createdAt: {
+        [Op.lte]: new Date(fecha + 'T23:59:59'),
+        [Op.gte]: new Date(fecha + 'T00:00:00')
+      }
+    }
   });
 
   // Obtener movimientos financieros del día
@@ -134,9 +136,6 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   });
 
   // Calcular estadísticas
-  // Asegurar conteo único de pacientes
-  const pacientesUnicos = new Set(pacientesDelDia.map(p => p.id));
-  const totalPacientes = pacientesUnicos.size;
   const totalCitas = citasDelDia.length;
   const citasCompletadas = citasDelDia.filter(c => c.estado === 'completada').length;
   const citasCanceladas = citasDelDia.filter(c => c.estado === 'cancelada').length;

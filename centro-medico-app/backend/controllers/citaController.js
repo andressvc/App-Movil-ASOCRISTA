@@ -25,9 +25,9 @@ const crearCita = async (req, res) => {
       });
     }
 
-    // Verificar que el paciente existe
+    // Verificar que el paciente existe y pertenece al usuario
     const paciente = await Paciente.findOne({
-      where: { id: paciente_id, activo: true }
+      where: { id: paciente_id, activo: true, usuario_id: req.usuario.id }
     });
 
     if (!paciente) {
@@ -37,10 +37,11 @@ const crearCita = async (req, res) => {
       });
     }
 
-    // Verificar conflictos de horario
+    // Verificar conflictos de horario (solo para citas del mismo usuario)
     const citaConflicto = await Cita.findOne({
       where: {
         fecha,
+        usuario_id: req.usuario.id,
         estado: { [Op.not]: 'cancelada' },
         [Op.or]: [
           {
@@ -80,7 +81,8 @@ const crearCita = async (req, res) => {
     });
 
     // Obtener la cita con datos del paciente
-    const citaCompleta = await Cita.findByPk(cita.id, {
+    const citaCompleta = await Cita.findOne({
+      where: { id: cita.id, usuario_id: req.usuario.id },
       include: [
         {
           model: Paciente,
@@ -126,7 +128,7 @@ const obtenerCitas = async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Construir condiciones de filtro
-    let whereCondition = {};
+    let whereCondition = { usuario_id: req.usuario.id };
     
     if (fecha) {
       whereCondition.fecha = fecha;
@@ -151,7 +153,7 @@ const obtenerCitas = async (req, res) => {
           model: Paciente,
           as: 'paciente',
           attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono'],
-          where: { activo: true }
+          where: { activo: true, usuario_id: req.usuario.id }
         },
         {
           model: User,
@@ -191,7 +193,8 @@ const obtenerCita = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const cita = await Cita.findByPk(id, {
+    const cita = await Cita.findOne({
+      where: { id, usuario_id: req.usuario.id },
       include: [
         {
           model: Paciente,
@@ -238,13 +241,13 @@ const obtenerCitasDelDia = async (req, res) => {
     const { fecha } = req.params;
     
     const citas = await Cita.findAll({
-      where: { fecha },
+      where: { fecha, usuario_id: req.usuario.id },
       include: [
         {
           model: Paciente,
           as: 'paciente',
           attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono'],
-          where: { activo: true }
+          where: { activo: true, usuario_id: req.usuario.id }
         },
         {
           model: User,
@@ -279,7 +282,9 @@ const actualizarCita = async (req, res) => {
     const { id } = req.params;
     const datosActualizacion = req.body;
 
-    const cita = await Cita.findByPk(id);
+    const cita = await Cita.findOne({
+      where: { id, usuario_id: req.usuario.id }
+    });
 
     if (!cita) {
       return res.status(404).json({
@@ -298,6 +303,7 @@ const actualizarCita = async (req, res) => {
         where: {
           id: { [Op.not]: id },
           fecha,
+          usuario_id: req.usuario.id,
           estado: { [Op.not]: 'cancelada' },
           [Op.or]: [
             {
@@ -327,7 +333,8 @@ const actualizarCita = async (req, res) => {
     await cita.update(datosActualizacion);
 
     // Obtener cita actualizada con relaciones
-    const citaActualizada = await Cita.findByPk(id, {
+    const citaActualizada = await Cita.findOne({
+      where: { id, usuario_id: req.usuario.id },
       include: [
         {
           model: Paciente,
@@ -381,7 +388,9 @@ const cambiarEstadoCita = async (req, res) => {
       });
     }
 
-    const cita = await Cita.findByPk(id);
+    const cita = await Cita.findOne({
+      where: { id, usuario_id: req.usuario.id }
+    });
 
     if (!cita) {
       return res.status(404).json({
@@ -424,7 +433,9 @@ const eliminarCita = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const cita = await Cita.findByPk(id);
+    const cita = await Cita.findOne({
+      where: { id, usuario_id: req.usuario.id }
+    });
 
     if (!cita) {
       return res.status(404).json({

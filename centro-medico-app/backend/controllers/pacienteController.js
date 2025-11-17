@@ -26,8 +26,9 @@ const crearPaciente = async (req, res) => {
       });
     }
 
-    // Generar código automáticamente
+    // Generar código automáticamente (solo para pacientes del usuario)
     const ultimoPaciente = await Paciente.findOne({
+      where: { usuario_id: req.usuario.id },
       order: [['id', 'DESC']],
       attributes: ['id']
     });
@@ -46,7 +47,8 @@ const crearPaciente = async (req, res) => {
       direccion,
       contacto_emergencia,
       telefono_emergencia,
-      historial_medico
+      historial_medico,
+      usuario_id: req.usuario.id
     });
 
     res.status(201).json({
@@ -80,7 +82,7 @@ const obtenerPacientes = async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Construir condiciones de búsqueda
-    let whereCondition = { activo: true };
+    let whereCondition = { activo: true, usuario_id: req.usuario.id };
     
     if (buscar && buscar.trim()) {
       const searchTerm = buscar.trim();
@@ -129,7 +131,7 @@ const obtenerPacientePorId = async (req, res) => {
     const { id } = req.params;
 
     const paciente = await Paciente.findOne({
-      where: { id, activo: true }
+      where: { id, activo: true, usuario_id: req.usuario.id }
     });
 
     if (!paciente) {
@@ -160,7 +162,7 @@ const actualizarPaciente = async (req, res) => {
     const datosActualizacion = req.body;
 
     const paciente = await Paciente.findOne({
-      where: { id, activo: true }
+      where: { id, activo: true, usuario_id: req.usuario.id }
     });
 
     if (!paciente) {
@@ -210,7 +212,7 @@ const eliminarPaciente = async (req, res) => {
     const { id } = req.params;
 
     const paciente = await Paciente.findOne({
-      where: { id, activo: true }
+      where: { id, activo: true, usuario_id: req.usuario.id }
     });
 
     if (!paciente) {
@@ -260,6 +262,7 @@ const buscarPacientes = async (req, res) => {
     const pacientes = await Paciente.findAll({
       where: {
         activo: true,
+        usuario_id: req.usuario.id,
         [Op.or]: [
           { nombre: { [Op.like]: `%${searchTerm}%` } },
           { apellido: { [Op.like]: `%${searchTerm}%` } },
