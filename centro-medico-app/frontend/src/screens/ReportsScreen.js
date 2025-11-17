@@ -26,6 +26,7 @@ const ReportsScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [generating, setGenerating] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
   const loadReports = async () => {
     try {
@@ -138,16 +139,16 @@ const ReportsScreen = ({ navigation }) => {
       console.log('ReportsScreen: Respuesta de generación:', response);
       
       if (response.success) {
-        // Cerrar modal inmediatamente
+        // Cerrar modal de generar reporte
         setShowGenerateModal(false);
         // Recargar lista para mostrar el nuevo reporte
         await loadReports();
-        // Mostrar mensaje de éxito simple
-        Alert.alert(
-          'Éxito',
-          'Reporte generado exitosamente',
-          [{ text: 'OK' }]
-        );
+        // Mostrar alerta de éxito
+        setShowSuccessAlert(true);
+        // Cerrar automáticamente después de 2 segundos
+        setTimeout(() => {
+          setShowSuccessAlert(false);
+        }, 2000);
       } else {
         console.log('ReportsScreen: Error en respuesta:', response.message);
         Alert.alert('Error', response.message || 'No se pudo generar el reporte');
@@ -417,6 +418,24 @@ const ReportsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
+      {/* Modal de Éxito en Centro de Pantalla */}
+      <Modal
+        visible={showSuccessAlert}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <Text style={styles.successModalTitle}>Reporte generado exitosamente</Text>
+            <TouchableOpacity
+              style={styles.successModalButton}
+              onPress={() => setShowSuccessAlert(false)}
+            >
+              <Text style={styles.successModalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -683,6 +702,38 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successModalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 30,
+    alignItems: 'center',
+    minWidth: 250,
+    ...Theme.shadows.lg,
+  },
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.success,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  successModalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successModalButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
