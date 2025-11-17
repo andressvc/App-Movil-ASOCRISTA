@@ -4,6 +4,7 @@ const {
   generarReporteDiario,
   obtenerReportes,
   obtenerReporte,
+  actualizarReporte,
   descargarPDFReporte,
   eliminarReporte
 } = require('../controllers/reporteController');
@@ -19,6 +20,7 @@ router.post('/generar/:fecha', generarReporteDiario);  // Generar reporte diario
 router.get('/', obtenerReportes);                      // Listar reportes con filtros
 // IMPORTANTE: La ruta /:id/pdf debe ir ANTES de /:id para evitar conflictos
 router.get('/:id/pdf', descargarPDFReporte);          // Descargar PDF del reporte
+router.put('/:id', actualizarReporte);                 // Actualizar reporte
 router.delete('/:id', eliminarReporte);               // Eliminar reporte
 router.get('/:id', obtenerReporte);                    // Obtener reporte por ID
 

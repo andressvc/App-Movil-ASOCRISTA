@@ -118,17 +118,9 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
     }]
   });
 
-  // Obtener pacientes nuevos creados en el día (pacientes ingresados)
-  const totalPacientes = await Paciente.count({
-    where: { 
-      activo: true,
-      usuario_id: usuario_id,
-      createdAt: {
-        [Op.lte]: new Date(fecha + 'T23:59:59'),
-        [Op.gte]: new Date(fecha + 'T00:00:00')
-      }
-    }
-  });
+  // Obtener pacientes únicos que tienen citas en el día (pacientes atendidos)
+  const pacientesUnicos = new Set(citasDelDia.map(c => c.paciente_id).filter(Boolean));
+  const totalPacientes = pacientesUnicos.size;
 
   // Obtener movimientos financieros del día
   const movimientosDelDia = await MovimientoFinanciero.findAll({
@@ -897,6 +889,50 @@ const descargarPDFReporte = async (req, res) => {
   }
 };
 
+// Actualizar reporte
+const actualizarReporte = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario_id = req.usuario.id;
+    const datosActualizacion = req.body;
+
+    const reporte = await Reporte.findOne({ where: { id, usuario_id } });
+    if (!reporte) {
+      return res.status(404).json({ success: false, message: 'Reporte no encontrado' });
+    }
+
+    // Solo permitir actualizar ciertos campos
+    const camposPermitidos = ['total_pacientes', 'total_citas', 'citas_completadas', 'citas_canceladas', 'total_ingresos', 'total_egresos', 'balance_diario'];
+    const datosActualizados = {};
+    
+    Object.keys(datosActualizacion).forEach(key => {
+      if (camposPermitidos.includes(key)) {
+        datosActualizados[key] = datosActualizacion[key];
+      }
+    });
+
+    await reporte.update(datosActualizados);
+
+    res.json({ 
+      success: true, 
+      message: 'Reporte actualizado exitosamente',
+      data: { reporte }
+    });
+
+    // Bitácora
+    logBitacora(req, {
+      accion: 'reporte_actualizado',
+      descripcion: `Reporte ${id} actualizado`,
+      entidad: 'reporte',
+      entidad_id: id,
+      metadata: datosActualizados
+    });
+  } catch (error) {
+    console.error('Error al actualizar reporte:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+};
+
 // Eliminar reporte
 const eliminarReporte = async (req, res) => {
   try {
@@ -935,6 +971,7 @@ module.exports = {
   generarReporteDiario,
   obtenerReportes,
   obtenerReporte,
+  actualizarReporte,
   descargarPDFReporte,
   eliminarReporte
 };
