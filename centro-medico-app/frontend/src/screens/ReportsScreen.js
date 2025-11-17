@@ -146,18 +146,23 @@ const ReportsScreen = ({ navigation }) => {
         if (nuevoReporte) {
           setReports(prevReports => [nuevoReporte, ...prevReports]);
         } else {
+          // Si no viene en la respuesta, recargar
           loadReports();
         }
         
-        // Mostrar alerta de éxito (igual que en AddPatientScreen)
-        setShowSuccessAlert(true);
+        // Mostrar alerta de éxito después de un pequeño delay para asegurar que se renderice
+        setTimeout(() => {
+          setShowSuccessAlert(true);
+          // Cerrar automáticamente después de 2 segundos
+          setTimeout(() => {
+            setShowSuccessAlert(false);
+          }, 2000);
+        }, 100);
       } else {
         Alert.alert('Error', response.message || 'No se pudo generar el reporte');
-        setGenerating(false);
       }
     } catch (error) {
       console.error('Error generando reporte:', error);
-      setGenerating(false);
       
       if (error.response?.status === 401) {
         Alert.alert(
@@ -168,6 +173,8 @@ const ReportsScreen = ({ navigation }) => {
       } else {
         Alert.alert('Error', 'No se pudo generar el reporte. Intenta nuevamente.');
       }
+    } finally {
+      setGenerating(false);
     }
   };
 

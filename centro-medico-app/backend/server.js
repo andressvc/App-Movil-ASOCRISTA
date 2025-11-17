@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 // Importar la configuración de la base de datos
@@ -91,6 +92,9 @@ app.use(limiter);
 // Middleware para parsear JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos de reportes
+app.use('/reportes', express.static(path.join(__dirname, 'reportes')));
 
 // Rutas de la API
 app.use('/api/auth', authRoutes);

@@ -58,21 +58,13 @@ const generarReporteDiario = async (req, res) => {
     // Generar PDF actualizado
     const pdfBuffer = await generarPDFReporte(reporte, datosDia);
 
-    let rutaPDF;
-    if (cloudinaryConfigured) {
-      // Subir a Cloudinary si está configurado
-      const publicId = `reporte_${reporte.fecha}_${Date.now()}`;
-      const uploadResult = await uploadPdfBuffer(pdfBuffer, publicId, { folder: 'reportes' });
-      rutaPDF = uploadResult.secure_url;
-    } else {
-      // Guardar localmente como antes si Cloudinary no está configurado
-      const reportesDir = path.join(__dirname, '../reportes');
-      await fs.mkdir(reportesDir, { recursive: true });
-      const nombreArchivo = `reporte_${reporte.fecha}_${Date.now()}.pdf`;
-      const rutaLocal = path.join(reportesDir, nombreArchivo);
-      await fs.writeFile(rutaLocal, pdfBuffer);
-      rutaPDF = rutaLocal;
-    }
+    // Guardar localmente
+    const reportesDir = path.join(__dirname, '../reportes');
+    await fs.mkdir(reportesDir, { recursive: true });
+    const nombreArchivo = `reporte_${reporte.fecha}_${Date.now()}.pdf`;
+    const rutaLocal = path.join(reportesDir, nombreArchivo);
+    await fs.writeFile(rutaLocal, pdfBuffer);
+    const rutaPDF = `/reportes/${nombreArchivo}`; // Ruta relativa para el navegador
 
     // Actualizar reporte con ruta del archivo
     await reporte.update({ ruta_archivo: rutaPDF });
