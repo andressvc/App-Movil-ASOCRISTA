@@ -1,5 +1,5 @@
 // screens/ReportsScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { reportService } from '../services/api';
@@ -27,6 +28,8 @@ const ReportsScreen = ({ navigation }) => {
   const [generating, setGenerating] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const loadReports = async () => {
     try {
@@ -140,10 +143,45 @@ const ReportsScreen = ({ navigation }) => {
       
       if (response.success) {
         console.log('ReportsScreen: Reporte generado exitosamente');
-        // Cerrar modal, recargar lista y mostrar alerta centrada estilo pacientes
+        // Cerrar modal de generar reporte
         setShowGenerateModal(false);
+        // Recargar lista
         await loadReports();
+        // Mostrar alerta de éxito con animación
         setShowSuccessAlert(true);
+        // Animar entrada
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 7,
+          }),
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        // Cerrar automáticamente después de 2 segundos
+        setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(scaleAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setShowSuccessAlert(false);
+            scaleAnim.setValue(0);
+            opacityAnim.setValue(0);
+          });
+        }, 2000);
       } else {
         console.log('ReportsScreen: Error en respuesta:', response.message);
         Alert.alert('Error', response.message || 'No se pudo generar el reporte');
@@ -413,25 +451,59 @@ const ReportsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Modal de Éxito centrado */}
+      {/* Modal de Éxito con animación */}
       <Modal
         visible={showSuccessAlert}
         transparent={true}
         animationType="fade"
+        onRequestClose={() => {
+          Animated.parallel([
+            Animated.timing(scaleAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacityAnim, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setShowSuccessAlert(false);
+            scaleAnim.setValue(0);
+            opacityAnim.setValue(0);
+          });
+        }}
       >
-        <View style={styles.successModalOverlay}>
-          <View style={styles.successModalContent}>
-            <Text style={styles.successModalTitle}>Generado Exitosamente</Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity
-                style={styles.successModalButton}
-                onPress={() => setShowSuccessAlert(false)}
-              >
-                <Text style={styles.successModalButtonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <Animated.View style={[styles.successModalOverlay, { opacity: opacityAnim }]}>
+          <Animated.View
+            style={[
+              styles.successModalContent,
+              {
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.successIconContainer,
+                {
+                  transform: [
+                    {
+                      scale: scaleAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0, 1.2, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={64} color={Colors.success} />
+            </Animated.View>
+            <Text style={styles.successModalTitle}>Reporte generado exitosamente</Text>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </View>
   );
@@ -708,29 +780,22 @@ const styles = StyleSheet.create({
   },
   successModalContent: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 30,
+    borderRadius: 20,
+    padding: 40,
     alignItems: 'center',
-    minWidth: 250,
+    minWidth: 280,
+    maxWidth: 320,
     ...Theme.shadows.lg,
+  },
+  successIconContainer: {
+    marginBottom: 20,
   },
   successModalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.success,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  successModalButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  successModalButtonText: {
-    color: Colors.white,
-    fontSize: 16,
     fontWeight: '600',
+    color: Colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
 
