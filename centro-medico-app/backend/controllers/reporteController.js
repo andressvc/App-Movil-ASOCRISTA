@@ -1,6 +1,6 @@
 // controllers/reporteController.js
 const { Reporte, Paciente, Cita, MovimientoFinanciero, User } = require('../models');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const PDFDocument = require('pdfkit');
 const { uploadPdfBuffer, isConfigured: cloudinaryConfigured } = require('../services/cloudinaryService');
 const { logBitacora } = require('../utils/bitacora');
@@ -27,7 +27,9 @@ const generarReporteDiario = async (req, res) => {
     });
 
     // Obtener datos del día (siempre en vivo desde la BD)
+    console.log(`📊 Generando reporte para fecha: ${fecha}, usuario: ${usuario_id}`);
     const datosDia = await obtenerDatosDelDia(fecha, usuario_id);
+    console.log(`📊 Datos obtenidos: ${datosDia.totalPacientes} pacientes, ${datosDia.totalCitas} citas`);
 
     if (reporte) {
       // Si existe, actualizar con los datos actuales
@@ -99,7 +101,32 @@ const generarReporteDiario = async (req, res) => {
 
 // Función auxiliar para obtener datos del día
 const obtenerDatosDelDia = async (fecha, usuario_id) => {
+  // Convertir fecha a formato Date para comparar con createdAt
+  // La fecha viene en formato YYYY-MM-DD, necesitamos comparar solo la parte de fecha
+  const fechaInicio = new Date(fecha + 'T00:00:00.000Z');
+  const fechaFin = new Date(fecha + 'T23:59:59.999Z');
+
+  // Obtener TODOS los pacientes ingresados/registrados en el día (por createdAt)
+  // Usar DATE() para extraer solo la parte de fecha y comparar
+  console.log(`🔍 Buscando pacientes creados en fecha: ${fecha} para usuario: ${usuario_id}`);
+  const pacientesDelDia = await Paciente.findAll({
+    where: {
+      usuario_id,
+      activo: true,
+      [Op.and]: [
+        Sequelize.where(
+          Sequelize.fn('DATE', Sequelize.col('createdAt')),
+          fecha
+        )
+      ]
+    },
+    attributes: ['id', 'codigo', 'nombre', 'apellido', 'telefono', 'fecha_nacimiento', 'activo', 'createdAt'],
+    order: [['createdAt', 'ASC']]
+  });
+  console.log(`✅ Encontrados ${pacientesDelDia.length} pacientes ingresados en el día`);
+
   // Obtener citas del día del usuario (sin filtrar por activo en el include)
+  console.log(`🔍 Buscando citas para fecha: ${fecha} para usuario: ${usuario_id}`);
   const citasDelDia = await Cita.findAll({
     where: { fecha, usuario_id },
     include: [{
@@ -107,21 +134,18 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
       as: 'paciente',
       attributes: ['id', 'nombre', 'apellido', 'telefono', 'fecha_nacimiento', 'activo'],
       required: false  // LEFT JOIN para incluir citas incluso si el paciente no existe o está inactivo
-    }]
+    }],
+    order: [['hora_inicio', 'ASC']]
   });
+  console.log(`✅ Encontradas ${citasDelDia.length} citas para el día`);
 
-  // Obtener pacientes únicos que tienen citas en el día (pacientes atendidos)
-  // Filtrar solo pacientes activos para el conteo
-  const pacientesUnicos = new Set(
-    citasDelDia
-      .filter(c => c.paciente && c.paciente.activo !== false && c.paciente_id)
-      .map(c => c.paciente_id)
-  );
-  const totalPacientes = pacientesUnicos.size;
+  // Total de pacientes ingresados en el día
+  const totalPacientes = pacientesDelDia.length;
 
   // Obtener movimientos financieros del día
   const movimientosDelDia = await MovimientoFinanciero.findAll({
-    where: { fecha, usuario_id }
+    where: { fecha, usuario_id },
+    order: [['createdAt', 'ASC']]
   });
 
   // Calcular estadísticas
@@ -140,6 +164,10 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   const balanceDiario = totalIngresos - totalEgresos;
 
   // Convertir instancias de Sequelize a objetos planos para facilitar el acceso a los datos
+  const pacientesPlanos = pacientesDelDia.map(paciente => {
+    return paciente.get ? paciente.get({ plain: true }) : paciente;
+  });
+
   const citasPlanas = citasDelDia.map(cita => {
     const citaData = cita.get ? cita.get({ plain: true }) : cita;
     return citaData;
@@ -157,6 +185,7 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
     totalIngresos,
     totalEgresos,
     balanceDiario,
+    pacientes: pacientesPlanos,
     citas: citasPlanas,
     movimientos: movimientosPlanos
   };
@@ -341,7 +370,7 @@ const generarPDFReporte = async (reporte, datos) => {
       doc.y = startY + (Math.ceil(stats.length / 2) * rowHeight);
       doc.moveDown(1.5);
 
-      // ===== SECCIÓN DE PACIENTES ATENDIDOS =====
+      // ===== SECCIÓN DE PACIENTES INGRESADOS EN EL DÍA =====
       doc.addPage();
       doc.y = 72; // Posición inicial en la nueva página
 
@@ -349,102 +378,88 @@ const generarPDFReporte = async (reporte, datos) => {
       doc.fontSize(14)
         .fillColor(colors.primary)
         .font('Helvetica-Bold')
-        .text('PACIENTES ATENDIDOS', { align: 'left' })
+        .text('PACIENTES INGRESADOS EN EL DÍA', { align: 'left' })
         .moveDown(0.8);
 
-      if (datos.citas && datos.citas.length > 0) {
-        // Filtrar solo citas con pacientes activos
-        const citasConPacientes = datos.citas.filter(cita => 
-          cita.paciente && cita.paciente.activo !== false
-        );
+      if (datos.pacientes && datos.pacientes.length > 0) {
+        // Encabezado de la tabla
+        const tableHeaderY = doc.y;
+        doc.rect(72, tableHeaderY, 450, 22)
+          .fillColor(colors.primary)
+          .fill();
         
-        if (citasConPacientes.length > 0) {
-          // Encabezado de la tabla
-          const tableHeaderY = doc.y;
-          doc.rect(72, tableHeaderY, 450, 22)
-            .fillColor(colors.primary)
+        doc.fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#FFFFFF')
+          .text('CÓDIGO', 75, tableHeaderY + 7, { width: 70 })
+          .text('PACIENTE', 145, tableHeaderY + 7, { width: 180 })
+          .text('EDAD', 325, tableHeaderY + 7, { width: 50 })
+          .text('TELÉFONO', 375, tableHeaderY + 7, { width: 147 });
+
+        let tableY = tableHeaderY + 22;
+        
+        // Mostrar todos los pacientes ingresados en el día
+        datos.pacientes.forEach((paciente, index) => {
+          if (tableY > 700) {
+            doc.addPage();
+            tableY = 72;
+            // Redibujar encabezado en nueva página
+            doc.rect(72, tableY, 450, 22)
+              .fillColor(colors.primary)
+              .fill();
+            doc.fontSize(9)
+              .font('Helvetica-Bold')
+              .fillColor('#FFFFFF')
+              .text('CÓDIGO', 75, tableY + 7, { width: 70 })
+              .text('PACIENTE', 145, tableY + 7, { width: 180 })
+              .text('EDAD', 325, tableY + 7, { width: 50 })
+              .text('TELÉFONO', 375, tableY + 7, { width: 147 });
+            tableY += 22;
+          }
+
+          // Fondo de fila alternado
+          const bgColor = index % 2 === 0 ? '#FFFFFF' : colors.lightBg;
+          doc.rect(72, tableY, 450, 20)
+            .fillColor(bgColor)
             .fill();
-          
-          doc.fontSize(9)
-            .font('Helvetica-Bold')
-            .fillColor('#FFFFFF')
-            .text('HORA', 75, tableHeaderY + 7, { width: 60 })
-            .text('PACIENTE', 135, tableHeaderY + 7, { width: 150 })
-            .text('EDAD', 285, tableHeaderY + 7, { width: 50 })
-            .text('TELÉFONO', 335, tableHeaderY + 7, { width: 100 })
-            .text('CONSULTA', 435, tableHeaderY + 7, { width: 85 });
 
-          let tableY = tableHeaderY + 22;
-          
-          // Ordenar citas por hora
-          citasConPacientes
-            .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''))
-            .forEach((cita, index) => {
-              if (tableY > 700) {
-                doc.addPage();
-                tableY = 72;
-                // Redibujar encabezado en nueva página
-                doc.rect(72, tableY, 450, 22)
-                  .fillColor(colors.primary)
-                  .fill();
-                doc.fontSize(9)
-                  .font('Helvetica-Bold')
-                  .fillColor('#FFFFFF')
-                  .text('HORA', 75, tableY + 7, { width: 60 })
-                  .text('PACIENTE', 135, tableY + 7, { width: 150 })
-                  .text('EDAD', 285, tableY + 7, { width: 50 })
-                  .text('TELÉFONO', 335, tableY + 7, { width: 100 })
-                  .text('CONSULTA', 435, tableY + 7, { width: 85 });
-                tableY += 22;
-              }
+          // Borde de la celda
+          doc.rect(72, tableY, 450, 20)
+            .strokeColor(colors.border)
+            .lineWidth(0.3)
+            .stroke();
 
-              // Fondo de fila alternado
-              const bgColor = index % 2 === 0 ? '#FFFFFF' : colors.lightBg;
-              doc.rect(72, tableY, 450, 20)
-                .fillColor(bgColor)
-                .fill();
+          // Calcular edad si hay fecha de nacimiento
+          let edad = 'N/A';
+          if (paciente.fecha_nacimiento) {
+            const nacimiento = new Date(paciente.fecha_nacimiento);
+            const hoy = new Date();
+            let edadCalculada = hoy.getFullYear() - nacimiento.getFullYear();
+            const m = hoy.getMonth() - nacimiento.getMonth();
+            if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
+              edadCalculada--;
+            }
+            edad = edadCalculada;
+          } else if (paciente.edad) {
+            edad = paciente.edad;
+          }
 
-              // Borde de la celda
-              doc.rect(72, tableY, 450, 20)
-                .strokeColor(colors.border)
-                .lineWidth(0.3)
-                .stroke();
+          // Contenido de la celda
+          doc.fillColor(colors.darkText)
+            .fontSize(9)
+            .font('Helvetica')
+            .text(paciente.codigo || 'N/A', 75, tableY + 6, { width: 70 })
+            .text(`${paciente.nombre || ''} ${paciente.apellido || ''}`.trim(), 145, tableY + 6, { width: 180 })
+            .text(edad.toString(), 325, tableY + 6, { width: 50, align: 'center' })
+            .text(paciente.telefono || 'N/A', 375, tableY + 6, { width: 147 });
 
-              // Calcular edad si hay fecha de nacimiento
-              let edad = 'N/A';
-              if (cita.paciente && cita.paciente.fecha_nacimiento) {
-                const nacimiento = new Date(cita.paciente.fecha_nacimiento);
-                const hoy = new Date();
-                let edadCalculada = hoy.getFullYear() - nacimiento.getFullYear();
-                const m = hoy.getMonth() - nacimiento.getMonth();
-                if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
-                  edadCalculada--;
-                }
-                edad = edadCalculada;
-              }
-
-              // Contenido de la celda
-              doc.fillColor(colors.darkText)
-                .fontSize(9)
-                .font('Helvetica')
-                .text(cita.hora_inicio || '--:--', 75, tableY + 6, { width: 60 })
-                .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 135, tableY + 6, { width: 150 })
-                .text(edad.toString(), 285, tableY + 6, { width: 50, align: 'center' })
-                .text(cita.paciente ? (cita.paciente.telefono || 'N/A') : 'N/A', 335, tableY + 6, { width: 100 })
-                .text((cita.tipo || 'Consulta').replace('_', ' ').substring(0, 12), 435, tableY + 6, { width: 85 });
-
-              tableY += 20;
-            });
-          doc.y = tableY;
-        } else {
-          doc.fontSize(10)
-            .fillColor(colors.lightText)
-            .text('No hay pacientes registrados para este día', { align: 'center' });
-        }
+          tableY += 20;
+        });
+        doc.y = tableY;
       } else {
         doc.fontSize(10)
           .fillColor(colors.lightText)
-          .text('No hay citas registradas para este día', { align: 'center' });
+          .text('No hay pacientes ingresados para este día', { align: 'center' });
       }
 
       // ===== SECCIÓN DE CITAS DEL DÍA =====
