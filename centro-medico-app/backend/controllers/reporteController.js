@@ -99,20 +99,24 @@ const generarReporteDiario = async (req, res) => {
 
 // Función auxiliar para obtener datos del día
 const obtenerDatosDelDia = async (fecha, usuario_id) => {
-  // Obtener citas del día del usuario
+  // Obtener citas del día del usuario (sin filtrar por activo en el include)
   const citasDelDia = await Cita.findAll({
     where: { fecha, usuario_id },
     include: [{
       model: Paciente,
       as: 'paciente',
-      attributes: ['id', 'nombre', 'apellido'],
-      where: { activo: true },
-      required: false
+      attributes: ['id', 'nombre', 'apellido', 'telefono', 'fecha_nacimiento', 'activo'],
+      required: false  // LEFT JOIN para incluir citas incluso si el paciente no existe o está inactivo
     }]
   });
 
   // Obtener pacientes únicos que tienen citas en el día (pacientes atendidos)
-  const pacientesUnicos = new Set(citasDelDia.map(c => c.paciente_id).filter(Boolean));
+  // Filtrar solo pacientes activos para el conteo
+  const pacientesUnicos = new Set(
+    citasDelDia
+      .filter(c => c.paciente && c.paciente.activo !== false && c.paciente_id)
+      .map(c => c.paciente_id)
+  );
   const totalPacientes = pacientesUnicos.size;
 
   // Obtener movimientos financieros del día
@@ -135,6 +139,16 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
   
   const balanceDiario = totalIngresos - totalEgresos;
 
+  // Convertir instancias de Sequelize a objetos planos para facilitar el acceso a los datos
+  const citasPlanas = citasDelDia.map(cita => {
+    const citaData = cita.get ? cita.get({ plain: true }) : cita;
+    return citaData;
+  });
+
+  const movimientosPlanos = movimientosDelDia.map(mov => {
+    return mov.get ? mov.get({ plain: true }) : mov;
+  });
+
   return {
     totalPacientes,
     totalCitas,
@@ -143,8 +157,8 @@ const obtenerDatosDelDia = async (fecha, usuario_id) => {
     totalIngresos,
     totalEgresos,
     balanceDiario,
-    citas: citasDelDia,
-    movimientos: movimientosDelDia
+    citas: citasPlanas,
+    movimientos: movimientosPlanos
   };
 };
 
@@ -171,6 +185,7 @@ const generarPDFReporte = async (reporte, datos) => {
         darkText: '#263238',    // Texto oscuro
         success: '#43A047',     // Verde para éxito
         danger: '#E53935',      // Rojo para errores
+        warning: '#FF9800',     // Naranja para advertencia/programada
         border: '#BBDEFB'       // Borde celeste
       };
 
@@ -338,8 +353,10 @@ const generarPDFReporte = async (reporte, datos) => {
         .moveDown(0.8);
 
       if (datos.citas && datos.citas.length > 0) {
-        // Filtrar solo citas con pacientes
-        const citasConPacientes = datos.citas.filter(cita => cita.paciente);
+        // Filtrar solo citas con pacientes activos
+        const citasConPacientes = datos.citas.filter(cita => 
+          cita.paciente && cita.paciente.activo !== false
+        );
         
         if (citasConPacientes.length > 0) {
           // Encabezado de la tabla
@@ -411,10 +428,10 @@ const generarPDFReporte = async (reporte, datos) => {
                 .fontSize(9)
                 .font('Helvetica')
                 .text(cita.hora_inicio || '--:--', 75, tableY + 6, { width: 60 })
-                .text(`${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}`, 135, tableY + 6, { width: 150 })
+                .text(cita.paciente ? `${cita.paciente.nombre || ''} ${cita.paciente.apellido || ''}` : 'Sin paciente', 135, tableY + 6, { width: 150 })
                 .text(edad.toString(), 285, tableY + 6, { width: 50, align: 'center' })
-                .text(cita.paciente.telefono || 'N/A', 335, tableY + 6, { width: 100 })
-                .text((cita.tipo_consulta || 'Consulta').substring(0, 12), 435, tableY + 6, { width: 85 });
+                .text(cita.paciente ? (cita.paciente.telefono || 'N/A') : 'N/A', 335, tableY + 6, { width: 100 })
+                .text((cita.tipo || 'Consulta').replace('_', ' ').substring(0, 12), 435, tableY + 6, { width: 85 });
 
               tableY += 20;
             });
